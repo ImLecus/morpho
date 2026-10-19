@@ -3,12 +3,13 @@
 
 #include "ui/main_window.hpp"
 
+#include <iostream>
+#include <string_view>
+
 #include <QApplication>
 #include <QCoreApplication>
 #include <QString>
 #include <QTimer>
-#include <iostream>
-#include <string_view>
 
 namespace {
 

@@ -9,5 +9,5 @@ AccessModifierOffset: -4
 BreakBeforeBraces: Attach
 AllowShortFunctionsOnASingleLine: Empty
 SortIncludes: CaseSensitive
-IncludeBlocks: Regroup
+IncludeBlocks: Preserve
 FixNamespaceComments: true

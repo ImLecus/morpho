@@ -13,6 +13,9 @@ set(CMAKE_C_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+# Morpho does not use C++20 modules. Disable dependency scanning so Clang builds
+# do not require clang-scan-deps.
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 
 include(GNUInstallDirs)
 include(CTest)
@@ -31,12 +34,12 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
       -Wshadow
       -Wconversion
       -Wsign-conversion
-      -Wold-style-cast
-      -Wnon-virtual-dtor
-      -Woverloaded-virtual
       -Wformat=2
       -Wundef
       -Wcast-qual
+      $<$<COMPILE_LANGUAGE:CXX>:-Wold-style-cast>
+      $<$<COMPILE_LANGUAGE:CXX>:-Wnon-virtual-dtor>
+      $<$<COMPILE_LANGUAGE:CXX>:-Woverloaded-virtual>
   )
 
   if(MORPHO_WARNINGS_AS_ERRORS)
