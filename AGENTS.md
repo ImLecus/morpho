@@ -94,7 +94,7 @@ M0 is the foundation phase. The repository currently contains this guide, a READ
 | Packaging | **AppImage primary**, Flatpak next, `.deb` optional | Self-contained delivery plus a sandboxed option. |
 | License | **MIT** for original code; LGPL dependencies dynamically linked | Permissive project license with strict third-party compliance. |
 | Versioning | **SemVer 2.0.0**; `0.y.z` before 1.0 | Predictable releases and changelog automation. |
-| Git workflow | Trunk-based on `main`; Conventional Commits; squash merge | Clean history and generated changelogs. |
+| Git workflow | **GitHub Flow**: short-lived branches from `main`, pull requests, squash merge; Conventional Commits | Clean history, small reviews, and a `main` branch that is always releasable. |
 | Testing | **Catch2 v3 + CTest**; Qt Test for UI; libFuzzer for parsers | Fast, local, deterministic, and network-free. |
 | Documentation | **US English**; ADRs for significant decisions | Global collaboration and durable context. |
 | Toolchain baseline | GCC 13+ or Clang 18+, CMake 3.28+, Qt 6.4+, FFmpeg 6.1+ | Ubuntu 24.04 LTS is the reference development environment. |
@@ -834,13 +834,18 @@ Required checks for `main`: format, build, tests, sanitizer, offline, and licens
 
 ## 11. Git workflow
 
-### 11.1 Branches
+### 11.1 GitHub Flow branches
+
+Morpho uses **GitHub Flow** as its branch management strategy:
 
 - `main` is protected, always releasable, and never receives direct pushes.
-- Work on short-lived branches: `feat/<slug>`, `fix/<slug>`, `perf/<slug>`, `refactor/<slug>`, `docs/<slug>`, `test/<slug>`, `build/<slug>`, `ci/<slug>`, `chore/<slug>`, or `revert/<slug>`.
+- Create a short-lived branch from `main` for every change. Use `feat/<slug>`, `fix/<slug>`, `perf/<slug>`, `refactor/<slug>`, `docs/<slug>`, `test/<slug>`, `build/<slug>`, `ci/<slug>`, `chore/<slug>`, or `revert/<slug>`.
 - Include an issue number when useful: `fix/123-cancel-empty-file`.
+- Open a pull request as soon as the branch is reviewable. Keep the branch focused and short-lived.
 - Rebase on `main` before requesting review. Resolve conflicts locally and rerun tests.
-- Delete branches after merge. Long-lived feature branches require maintainer approval.
+- Merge with squash merge after approval and green CI, then delete the branch.
+- Do not maintain long-lived `develop`, `release`, or environment branches. Releases are tags on `main`.
+- Hotfixes use the same branch-and-pull-request flow. A patch for an older release line is the only exception and requires maintainer approval.
 
 ### 11.2 Commits
 
@@ -922,7 +927,7 @@ BREAKING CHANGE: scripts using --to must switch to --format.
 - Sign tags and artifacts when maintainer keys are available. At minimum, publish checksums and a reproducible build recipe.
 - Release checklist: CI green, manual QA complete, licenses reviewed, offline test passed, version updated, tag created, artifacts smoke-tested, release notes published.
 - There is no auto-update. Users update through their package manager or by downloading a new artifact.
-- Hotfixes branch from the affected tag, receive a patch release, and are merged back to `main`.
+- Hotfixes normally branch from `main` and receive a patch release. If an older release line must be patched, branch from the affected tag with maintainer approval and merge the fix back to `main`.
 
 ### 11.6 What not to commit
 
