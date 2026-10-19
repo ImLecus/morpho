@@ -1,0 +1,13 @@
+BasedOnStyle: LLVM
+Language: Cpp
+Standard: c++20
+IndentWidth: 4
+ColumnLimit: 100
+PointerAlignment: Right
+DerivePointerAlignment: false
+AccessModifierOffset: -4
+BreakBeforeBraces: Attach
+AllowShortFunctionsOnASingleLine: Empty
+SortIncludes: CaseSensitive
+IncludeBlocks: Regroup
+FixNamespaceComments: true

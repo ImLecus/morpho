@@ -1,0 +1,22 @@
+# Build output
+/build/
+
+# CMake user files
+CMakeUserPresets.json
+
+# Editor and IDE state
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+*.user
+*.autosave
+
+# Local tooling
+.cache/
+compile_commands.json
+
+# OS files
+.DS_Store
+Thumbs.db
