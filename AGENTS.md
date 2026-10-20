@@ -172,15 +172,15 @@ Queued -> Probing -> Converting -> Verifying -> Published
    +---------+------------+------------+--> Failed / Canceled
 ```
 
-1. **Enqueue:** validate the request, reserve an output name, and create a private temporary workspace in the destination filesystem.
+1. **Enqueue:** validate the request and allocate an in-memory result (or a private workspace for formats that need disk-backed staging).
 2. **Probe:** detect the real format from magic bytes, inspect metadata, and enforce input limits before large allocations.
-3. **Plan:** select a backend and options, reject unsupported pairs, and estimate disk requirements.
-4. **Convert:** stream the input to a temporary output file. Report progress and check the cancellation token between chunks or frames.
-5. **Verify:** reopen the output, validate the container or codec header, dimensions or duration, and non-zero payload. Full decoding is reserved for tests and explicit debug modes.
-6. **Publish:** flush the file, atomically rename it to the final name, and remove the workspace. Existing files are never overwritten unless the user explicitly selected overwrite.
-7. **Report:** return the output path, elapsed time, warnings, and technical metadata to the caller.
+3. **Plan:** select a backend and options, reject unsupported pairs, and estimate memory or disk requirements.
+4. **Convert:** stream the input and build the output. The current JPG-to-PNG path keeps the encoded PNG in memory; future large formats may use a private workspace instead.
+5. **Verify:** validate the container or codec header, dimensions or duration, and non-zero payload. Full decoding is reserved for tests and explicit debug modes.
+6. **Hold or publish:** keep the result in memory until the user explicitly downloads it. The download step writes atomically through `QSaveFile` (or a temporary file plus rename). Existing files are never overwritten without explicit user confirmation.
+7. **Report:** return the output name, encoded bytes, elapsed time, warnings, and technical metadata to the caller.
 
-On failure or cancellation, delete the temporary output, preserve any pre-existing destination file, and return a structured error. A partially written file MUST never be visible under the final name.
+On failure or cancellation, release the in-memory result, delete any workspace, preserve pre-existing destination files, and return a structured error. A partially written file MUST never be visible under the final name.
 
 ### 3.4 Jobs, threading, and cancellation
 
@@ -220,13 +220,13 @@ On failure or cancellation, delete the temporary output, preserve any pre-existi
 
 - Internal paths use `std::filesystem::path`. On Linux, paths are byte sequences; never assume UTF-8. The UI converts with `QFile::encodeName` and `QFile::decodeName` and displays escaped names when needed.
 - Never normalize, case-fold, or truncate a user path silently. Preserve Unicode code points and filename bytes.
-- Temporary output lives in a private directory inside the destination filesystem (`.morpho-tmp/<uuid>/`) so the final rename is atomic. Workspace files are created with mode `0600`; final files use `0666 & ~umask`.
-- Clean the workspace on success, failure, and cancellation. At startup, remove only stale Morpho workspaces older than seven days that match the exact internal pattern. Never delete arbitrary files.
-- Publish with a same-filesystem atomic rename. Flush the file before renaming. If the destination name exists, apply the selected policy: `Rename` (default, append ` (1)`, ` (2)`, and so on), `Overwrite` (explicit), or `Fail`.
-- The default output directory is the source file's directory for each input, including batch jobs. If it is not writable, return an actionable error; a future setting will allow a different output directory. Always show where output will be written before conversion.
+- When a backend needs disk-backed staging, temporary output lives in a private directory inside the destination filesystem (`.morpho-tmp/<uuid>/`) so the final rename is atomic. Workspace files are created with mode `0600`; final files use `0666 & ~umask`.
+- Clean any workspace on success, failure, and cancellation. At startup, remove only stale Morpho workspaces older than seven days that match the exact internal pattern. Never delete arbitrary files.
+- Downloads use an atomic write (`QSaveFile` or a same-filesystem temporary file plus rename). Flush before publishing. If the destination name exists, the file dialog must ask for confirmation before replacing it.
+- Conversions are held in memory and are never written to the source directory implicitly. The user chooses the destination when downloading; default to the XDG downloads directory. Write only on explicit download, atomically through `QSaveFile` or a temporary file plus rename.
 - Preserve metadata by default when the target format supports it, and provide an explicit “Remove metadata” option. Never invent metadata values. Document per-format behavior and warn when location metadata is present.
 - Do not follow output symlinks. Writing a temporary file and renaming over a symlink replaces the symlink, which is acceptable; never write through an untrusted symlink target.
-- Check free space before converting. Require at least `max(input_size, 64 MiB) + 10%`, fail early with `NoSpace`, and keep the check cheap.
+- Check free space before writing a disk-backed result or a download. Require at least `max(output_size, 64 MiB) + 10%`, fail early with `NoSpace`, and keep the check cheap.
 - If a filename component exceeds 255 bytes, truncate the base name and append a short stable hash while preserving the extension. Return a warning.
 - Do not write outside the chosen output directory, the Morpho cache/config directories, or the system temporary directory. Backends receive an explicit workspace and output path.
 
@@ -996,10 +996,9 @@ ADRs are required for: language or GUI framework changes, new runtime dependenci
 
 1. Add files with the native file dialog or drag-and-drop.
 2. Review the queue: name, type, size, target format, status, progress.
-3. Choose the target format and options for the batch, with per-file overrides where supported.
-4. Choose the output directory and collision policy.
-5. Convert. Jobs run in the background with progress and cancel controls.
-6. On completion, open the output folder, reveal a file, or retry failures.
+3. Choose the target format and options in the conversion panel.
+4. Convert. Jobs run in the background with progress and cancel controls.
+5. On completion, converted files appear in the right sidebar with their source and target names, encoded size, and a **Download** action. Keep the bytes in memory until the user downloads them.
 
 The UI should make the local-only guarantee visible without turning privacy into a marketing banner. A short “Files stay on this device” line near the drop zone is enough.
 

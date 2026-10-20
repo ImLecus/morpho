@@ -10,7 +10,11 @@ add_test(
 )
 set_tests_properties(jpeg_to_png.converts PROPERTIES TIMEOUT 30)
 
-add_executable(morpho_ui_drop_test ui_drop_test.cpp)
+add_executable(
+  morpho_ui_drop_test
+  ui_drop_test.cpp
+  "${PROJECT_SOURCE_DIR}/assets/morpho.qrc"
+)
 target_link_libraries(
   morpho_ui_drop_test
   PRIVATE morpho_ui morpho_backends morpho_project_warnings

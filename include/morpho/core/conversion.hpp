@@ -3,20 +3,22 @@
 
 #pragma once
 
+#include <cstdint>
 #include <filesystem>
 #include <string>
+#include <vector>
 
 namespace morpho {
 
 struct ConversionRequest {
     std::filesystem::path inputPath;
-    std::filesystem::path outputPath;
 };
 
 struct ConversionResult {
     bool success = false;
     std::filesystem::path inputPath;
-    std::filesystem::path outputPath;
+    std::string outputFileName;
+    std::vector<std::uint8_t> data;
     std::string error;
 };
 

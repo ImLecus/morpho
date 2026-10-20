@@ -11,8 +11,8 @@
 #include <cstring>
 #include <filesystem>
 #include <string>
-#include <system_error>
 #include <utility>
+#include <vector>
 
 #include <jpeglib.h>
 #include <png.h>
@@ -60,7 +60,6 @@ struct JpegState {
 ConversionResult failure(const ConversionRequest &request, std::string message) {
     ConversionResult result;
     result.inputPath = request.inputPath;
-    result.outputPath = request.outputPath;
     result.error = std::move(message);
     return result;
 }
@@ -168,30 +167,30 @@ ConversionResult JpegToPngConverter::convert(const ConversionRequest &request) {
     image.height = static_cast<png_uint_32>(height);
     image.format = PNG_FORMAT_RGB;
 
-    std::filesystem::path temporary = request.outputPath;
-    temporary += ".part";
-    const std::string temporaryName = temporary.string();
-
-    if (png_image_write_to_file(&image, temporaryName.c_str(), 0, state.rgb, 0, nullptr) == 0) {
-        std::error_code removeError;
-        std::filesystem::remove(temporary, removeError);
+    png_alloc_size_t encodedSize = 0;
+    if (png_image_write_get_memory_size(image, encodedSize, 0, state.rgb, 0, nullptr) == 0) {
         const std::string message =
-            image.message[0] != '\0' ? std::string(image.message) : "Could not write the PNG file.";
+            image.message[0] != '\0' ? std::string(image.message) : "Could not encode the PNG.";
         return failure(request, message);
     }
 
-    std::error_code renameError;
-    std::filesystem::rename(temporary, request.outputPath, renameError);
-    if (renameError) {
-        std::error_code removeError;
-        std::filesystem::remove(temporary, removeError);
-        return failure(request, "Could not publish the PNG file: " + renameError.message());
+    std::vector<std::uint8_t> encoded(static_cast<std::size_t>(encodedSize));
+    if (png_image_write_to_memory(&image, encoded.data(), &encodedSize, 0, state.rgb, 0, nullptr) ==
+        0) {
+        const std::string message =
+            image.message[0] != '\0' ? std::string(image.message) : "Could not encode the PNG.";
+        return failure(request, message);
     }
+    encoded.resize(static_cast<std::size_t>(encodedSize));
+
+    std::filesystem::path outputName = request.inputPath.filename();
+    outputName.replace_extension(".png");
 
     ConversionResult result;
     result.success = true;
     result.inputPath = request.inputPath;
-    result.outputPath = request.outputPath;
+    result.outputFileName = outputName.string();
+    result.data = std::move(encoded);
     return result;
 }
 

@@ -9,5 +9,6 @@
         <file alias="icons/morpho-128.png">icons/128/morpho.png</file>
         <file alias="icons/morpho-256.png">icons/256/morpho.png</file>
         <file alias="icons/chevron-down.png">icons/chevron-down.png</file>
+        <file alias="icons/download.png">download.png</file>
     </qresource>
 </RCC>

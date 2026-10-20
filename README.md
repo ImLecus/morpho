@@ -6,8 +6,9 @@ Morpho is a free, offline, local-first file converter for the desktop. It conver
 video, documents, and archives without uploading files, creating accounts, or sending telemetry.
 
 **Status:** pre-alpha (M0 plus the first conversion). The Qt window, build skeleton, and CI are
-in place. Drag JPG/JPEG files into the window, or use **File > Open JPG files**, to write PNG
-copies next to the originals. This is the only conversion implemented so far.
+in place. Drag JPG/JPEG files into the window, or use **File > Open JPG files**. Converted PNGs
+stay in memory and appear in the right sidebar as an entry such as `foto (JPG → PNG)`, with the
+file size and a **Download** button. This is the only conversion implemented so far.
 
 ## Build
 

@@ -3,13 +3,12 @@
 
 #include "backends/image/jpeg_to_png.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <filesystem>
-#include <fstream>
 #include <iostream>
 #include <string>
-#include <system_error>
 
 int main(int argc, char *argv[]) {
     if (argc != 2) {
@@ -18,16 +17,10 @@ int main(int argc, char *argv[]) {
     }
 
     const std::filesystem::path input = argv[1];
-    const std::filesystem::path output =
-        std::filesystem::temp_directory_path() / "morpho-jpeg-to-png-test.png";
-
-    std::error_code error;
-    std::filesystem::remove(output, error);
 
     morpho::image::JpegToPngConverter converter;
     morpho::ConversionRequest request;
     request.inputPath = input;
-    request.outputPath = output;
 
     const morpho::ConversionResult result = converter.convert(request);
     if (!result.success) {
@@ -35,46 +28,33 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    std::ifstream file(output, std::ios::binary);
-    if (!file) {
-        std::cerr << "Could not open the generated PNG.\n";
+    if (result.outputFileName != "tiny.png") {
+        std::cerr << "Unexpected output file name: " << result.outputFileName << '\n';
         return 1;
     }
 
-    std::array<unsigned char, 8> signature{};
-    file.read(reinterpret_cast<char *>(signature.data()),
-              static_cast<std::streamsize>(signature.size()));
-    constexpr std::array<unsigned char, 8> kPngSignature = {0x89, 'P',  'N',  'G',
-                                                            0x0D, 0x0A, 0x1A, 0x0A};
-
-    if (!file || signature != kPngSignature) {
-        std::cerr << "The generated file is not a PNG.\n";
-        std::filesystem::remove(output, error);
+    constexpr std::array<std::uint8_t, 8> kPngSignature = {0x89, 'P',  'N',  'G',
+                                                           0x0D, 0x0A, 0x1A, 0x0A};
+    if (result.data.size() < 24 ||
+        !std::equal(kPngSignature.begin(), kPngSignature.end(), result.data.begin())) {
+        std::cerr << "The generated data is not a PNG.\n";
         return 1;
     }
 
-    std::array<unsigned char, 16> header{};
-    file.read(reinterpret_cast<char *>(header.data()), static_cast<std::streamsize>(header.size()));
-    const auto readUint32 = [](const unsigned char *bytes) {
-        return (static_cast<std::uint32_t>(bytes[0]) << 24U) |
-               (static_cast<std::uint32_t>(bytes[1]) << 16U) |
-               (static_cast<std::uint32_t>(bytes[2]) << 8U) | static_cast<std::uint32_t>(bytes[3]);
+    const auto readUint32 = [&result](std::size_t offset) {
+        return (static_cast<std::uint32_t>(result.data[offset]) << 24U) |
+               (static_cast<std::uint32_t>(result.data[offset + 1]) << 16U) |
+               (static_cast<std::uint32_t>(result.data[offset + 2]) << 8U) |
+               static_cast<std::uint32_t>(result.data[offset + 3]);
     };
 
-    if (!file || header[4] != 'I' || header[5] != 'H' || header[6] != 'D' || header[7] != 'R' ||
-        readUint32(header.data() + 8) != 8 || readUint32(header.data() + 12) != 8) {
+    if (result.data[12] != 'I' || result.data[13] != 'H' || result.data[14] != 'D' ||
+        result.data[15] != 'R' || readUint32(16) != 8 || readUint32(20) != 8) {
         std::cerr << "The generated PNG has an unexpected header.\n";
-        std::filesystem::remove(output, error);
         return 1;
     }
 
-    const std::uintmax_t size = std::filesystem::file_size(output, error);
-    std::filesystem::remove(output, error);
-    if (error || size <= signature.size()) {
-        std::cerr << "The generated PNG is empty.\n";
-        return 1;
-    }
-
-    std::cout << "Converted " << input << " to a PNG of " << size << " bytes.\n";
+    std::cout << "Converted " << input << " to " << result.outputFileName << " ("
+              << result.data.size() << " bytes) in memory.\n";
     return 0;
 }

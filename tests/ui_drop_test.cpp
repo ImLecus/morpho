@@ -6,7 +6,6 @@
 #include "ui/theme.hpp"
 
 #include <QApplication>
-#include <QByteArray>
 #include <QColor>
 #include <QComboBox>
 #include <QCoreApplication>
@@ -16,9 +15,12 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QFrame>
+#include <QLabel>
 #include <QMimeData>
 #include <QPalette>
 #include <QPointF>
+#include <QPushButton>
+#include <QScrollArea>
 #include <QTemporaryDir>
 #include <QThread>
 #include <QUrl>
@@ -56,10 +58,11 @@ int main(int argc, char *argv[]) {
     auto *conversionPanel = window.findChild<QFrame *>(QStringLiteral("conversionPanel"));
     auto *fromCombo = window.findChild<QComboBox *>(QStringLiteral("fromFormatCombo"));
     auto *toCombo = window.findChild<QComboBox *>(QStringLiteral("toFormatCombo"));
+    auto *convertedScroll = window.findChild<QScrollArea *>(QStringLiteral("convertedScroll"));
 
     if (dropTarget == nullptr || conversionPanel == nullptr || fromCombo == nullptr ||
-        toCombo == nullptr) {
-        std::cerr << "Could not find the drop area or conversion controls.\n";
+        toCombo == nullptr || convertedScroll == nullptr) {
+        std::cerr << "Could not find the drop area, conversion controls, or sidebar.\n";
         return 1;
     }
 
@@ -114,32 +117,62 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    const QString output = temporaryDirectory.filePath(QStringLiteral("tiny.png"));
     QElapsedTimer timer;
     timer.start();
 
-    while (!QFileInfo::exists(output) && timer.elapsed() < 5000) {
+    while (window.findChildren<QWidget *>(QStringLiteral("convertedRow")).isEmpty() &&
+           timer.elapsed() < 5000) {
         QCoreApplication::processEvents(QEventLoop::AllEvents, 50);
         QThread::msleep(10);
     }
 
-    if (!QFileInfo::exists(output)) {
-        std::cerr << "The drag-and-drop conversion did not produce a PNG.\n";
+    const QList<QWidget *> rows = window.findChildren<QWidget *>(QStringLiteral("convertedRow"));
+    if (rows.size() != 1) {
+        std::cerr << "The drag-and-drop conversion did not appear in the sidebar.\n";
         return 1;
     }
 
-    QFile file(output);
-    if (!file.open(QIODevice::ReadOnly)) {
-        std::cerr << "Could not open the generated PNG.\n";
+    if (QFileInfo::exists(temporaryDirectory.filePath(QStringLiteral("tiny.png")))) {
+        std::cerr << "The conversion wrote output to disk instead of keeping it in memory.\n";
         return 1;
     }
 
-    const QByteArray signature = file.read(8);
-    if (signature != QByteArray::fromHex("89504e470d0a1a0a")) {
-        std::cerr << "The generated file is not a PNG.\n";
+    QWidget *row = rows.first();
+    QCoreApplication::processEvents();
+
+    auto *nameLabel = row->findChild<QLabel *>(QStringLiteral("convertedName"));
+    auto *sizeLabel = row->findChild<QLabel *>(QStringLiteral("convertedSize"));
+    auto *downloadButton = row->findChild<QPushButton *>(QStringLiteral("downloadButton"));
+
+    if (nameLabel == nullptr || sizeLabel == nullptr || downloadButton == nullptr) {
+        std::cerr << "The sidebar row is missing its labels or download button.\n";
         return 1;
     }
 
-    std::cout << "Drag-and-drop conversion produced a PNG.\n";
+    if (nameLabel->text() != QStringLiteral("tiny (JPG → PNG)")) {
+        std::cerr << "The sidebar row has an unexpected file name.\n";
+        return 1;
+    }
+
+    if (sizeLabel->text().isEmpty() || !downloadButton->isEnabled() ||
+        !downloadButton->text().isEmpty() || downloadButton->icon().isNull() ||
+        downloadButton->icon().pixmap(32, 32).isNull() ||
+        downloadButton->toolTip() != QStringLiteral("Download")) {
+        std::cerr << "The sidebar row has an unexpected size or download state.\n";
+        return 1;
+    }
+
+    if (!downloadButton->isVisible() || downloadButton->width() < 40 ||
+        downloadButton->x() + downloadButton->width() > row->width()) {
+        std::cerr << "The download button is not visible inside the sidebar row.\n";
+        return 1;
+    }
+
+    if (!downloadButton->styleSheet().contains(QStringLiteral("#D92222"), Qt::CaseInsensitive)) {
+        std::cerr << "The download button does not use the primary color.\n";
+        return 1;
+    }
+
+    std::cout << "Drag-and-drop conversion produced an in-memory PNG in the sidebar.\n";
     return 0;
 }

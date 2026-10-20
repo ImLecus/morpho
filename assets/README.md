@@ -5,6 +5,7 @@
 - `icons/<size>/morpho.png` — Downscaled icons generated from `../morpho.png` with ImageMagick
   and stripped of metadata. Used by the Qt resource and the hicolor icon theme.
 - `icons/chevron-down.png` — White dropdown chevron used by the format selectors.
+- `download.png` — 24x24 white download glyph used by the icon-only download button.
 - `morpho.qrc` — Qt resource manifest that embeds the icon set and UI glyphs in the application
   binary.
 

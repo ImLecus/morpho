@@ -5,6 +5,7 @@
 
 #include <exception>
 #include <filesystem>
+#include <memory>
 #include <string>
 #include <utility>
 
@@ -23,16 +24,25 @@
 #include <QFont>
 #include <QFrame>
 #include <QHBoxLayout>
+#include <QIcon>
 #include <QKeySequence>
 #include <QLabel>
 #include <QList>
+#include <QLocale>
 #include <QMenu>
 #include <QMenuBar>
+#include <QMessageBox>
 #include <QMetaObject>
 #include <QMimeData>
 #include <QPushButton>
+#include <QSaveFile>
+#include <QScrollArea>
+#include <QSize>
+#include <QSizePolicy>
+#include <QStandardPaths>
 #include <QStatusBar>
 #include <QString>
+#include <QTimer>
 #include <QUrl>
 #include <QVBoxLayout>
 #include <QWidget>
@@ -56,25 +66,6 @@ std::filesystem::path toPath(const QString &path) {
 QString fromPath(const std::filesystem::path &path) {
     const std::string bytes = path.string();
     return QFile::decodeName(QByteArray(bytes.data(), static_cast<int>(bytes.size())));
-}
-
-QString uniqueOutputPath(const QString &inputPath) {
-    const QFileInfo input(inputPath);
-    const QDir directory = input.absoluteDir();
-    QString base = input.completeBaseName();
-
-    if (base.isEmpty()) {
-        base = QStringLiteral("converted");
-    }
-
-    QString candidate = directory.filePath(base + QStringLiteral(".png"));
-    int counter = 1;
-    while (QFileInfo::exists(candidate)) {
-        candidate = directory.filePath(QStringLiteral("%1 (%2).png").arg(base).arg(counter));
-        ++counter;
-    }
-
-    return candidate;
 }
 
 bool hasLocalFileUrls(const QMimeData *mimeData) {
@@ -135,14 +126,23 @@ MainWindow::MainWindow(ConversionService &conversionService, QWidget *parent)
     : QMainWindow(parent), m_conversionService(conversionService) {
     setWindowTitle(tr("Morpho"));
     setWindowIcon(appIcon());
-    setMinimumSize(720, 680);
-    resize(960, 680);
+    setMinimumSize(1040, 680);
+    resize(1280, 720);
     setAcceptDrops(true);
 
     auto *central = new QWidget(this);
     central->setObjectName(QStringLiteral("central"));
     central->setStyleSheet(QStringLiteral("QWidget#central { background-color: #FFFFFF; }"));
-    auto *layout = new QVBoxLayout(central);
+
+    auto *rootLayout = new QHBoxLayout(central);
+    rootLayout->setContentsMargins(0, 0, 0, 0);
+    rootLayout->setSpacing(0);
+
+    auto *mainArea = new QWidget(central);
+    mainArea->setObjectName(QStringLiteral("mainArea"));
+    mainArea->setStyleSheet(QStringLiteral("QWidget#mainArea { background-color: #FFFFFF; }"));
+
+    auto *layout = new QVBoxLayout(mainArea);
     layout->setContentsMargins(48, 48, 48, 48);
     layout->setSpacing(16);
 
@@ -171,8 +171,8 @@ MainWindow::MainWindow(ConversionService &conversionService, QWidget *parent)
     auto *dropTitle = makeLabel(tr("Drop JPG files here"), dropZone);
     scaleFont(dropTitle, 1.35);
 
-    m_dropHint = makeLabel(
-        tr("Drop JPG or JPEG files here. PNG files are written next to the originals."), dropZone);
+    m_dropHint = makeLabel(tr("Drop JPG or JPEG files here. Converted PNGs appear in the sidebar."),
+                           dropZone);
 
     auto *chooseButton = new QPushButton(tr("Choose JPG files"), dropZone);
     chooseButton->setToolTip(tr("Select one or more JPG or JPEG files"));
@@ -247,6 +247,56 @@ MainWindow::MainWindow(ConversionService &conversionService, QWidget *parent)
     layout->addWidget(subtitle);
     layout->addWidget(dropZone, 1);
     layout->addWidget(conversionPanel);
+
+    auto *sidebar = new QFrame(central);
+    sidebar->setObjectName(QStringLiteral("convertedSidebar"));
+    sidebar->setAccessibleName(tr("Converted files"));
+    sidebar->setAttribute(Qt::WA_StyledBackground, true);
+    sidebar->setFixedWidth(340);
+    sidebar->setStyleSheet(QStringLiteral(
+        "QFrame#convertedSidebar { background-color: #FFFFFF; border-left: 1px solid #E5E5E5; }"));
+
+    auto *sidebarLayout = new QVBoxLayout(sidebar);
+    sidebarLayout->setContentsMargins(24, 32, 24, 24);
+    sidebarLayout->setSpacing(8);
+
+    auto *sidebarTitle = new QLabel(tr("Converted files"), sidebar);
+    scaleFont(sidebarTitle, 1.35);
+    QFont sidebarTitleFont = sidebarTitle->font();
+    sidebarTitleFont.setBold(true);
+    sidebarTitle->setFont(sidebarTitleFont);
+
+    auto *sidebarHint = new QLabel(tr("Files stay in memory until you download them."), sidebar);
+    sidebarHint->setTextFormat(Qt::PlainText);
+    sidebarHint->setWordWrap(true);
+    sidebarHint->setStyleSheet(QStringLiteral("color: #666666;"));
+
+    m_convertedScroll = new QScrollArea(sidebar);
+    m_convertedScroll->setObjectName(QStringLiteral("convertedScroll"));
+    m_convertedScroll->setWidgetResizable(true);
+    m_convertedScroll->setFrameShape(QFrame::NoFrame);
+    m_convertedScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_convertedScroll->setStyleSheet(
+        QStringLiteral("QScrollArea { background-color: #FFFFFF; border: none; }"));
+
+    m_convertedContainer = new QWidget(m_convertedScroll);
+    m_convertedContainer->setObjectName(QStringLiteral("convertedContainer"));
+    m_convertedContainer->setStyleSheet(
+        QStringLiteral("QWidget#convertedContainer { background-color: #FFFFFF; }"));
+
+    m_convertedLayout = new QVBoxLayout(m_convertedContainer);
+    m_convertedLayout->setContentsMargins(0, 0, 0, 0);
+    m_convertedLayout->setSpacing(8);
+    m_convertedLayout->addStretch();
+    m_convertedScroll->setWidget(m_convertedContainer);
+
+    sidebarLayout->addWidget(sidebarTitle);
+    sidebarLayout->addWidget(sidebarHint);
+    sidebarLayout->addSpacing(8);
+    sidebarLayout->addWidget(m_convertedScroll, 1);
+
+    rootLayout->addWidget(mainArea, 1);
+    rootLayout->addWidget(sidebar);
     setCentralWidget(central);
 
     menuBar()->setStyleSheet(
@@ -399,15 +449,12 @@ void MainWindow::startConversions(const QStringList &files) {
 
                 try {
                     request.inputPath = toPath(file);
-                    request.outputPath = toPath(uniqueOutputPath(file));
                     result = service->convert(request);
                 } catch (const std::exception &exception) {
                     result.inputPath = request.inputPath;
-                    result.outputPath = request.outputPath;
                     result.error = exception.what();
                 } catch (...) {
                     result.inputPath = request.inputPath;
-                    result.outputPath = request.outputPath;
                     result.error = "Unknown conversion error.";
                 }
 
@@ -442,9 +489,10 @@ void MainWindow::conversionFinished(QVector<ConversionResult> results) {
 
     int converted = 0;
     QStringList errors;
-    for (const ConversionResult &result : results) {
+    for (ConversionResult &result : results) {
         if (result.success) {
             ++converted;
+            addConvertedFile(std::move(result));
             continue;
         }
 
@@ -457,9 +505,8 @@ void MainWindow::conversionFinished(QVector<ConversionResult> results) {
     if (converted == total) {
         m_dropHint->setText(
             converted == 1
-                ? tr("Converted 1 file to PNG. The PNG file is next to the original.")
-                : tr("Converted %1 files to PNG. The PNG files are next to the originals.")
-                      .arg(converted));
+                ? tr("Converted 1 file to PNG. It is ready in the sidebar.")
+                : tr("Converted %1 files to PNG. They are ready in the sidebar.").arg(converted));
         statusBar()->showMessage(tr("Conversion complete."), 8000);
     } else if (converted == 0) {
         m_dropHint->setText(
@@ -472,6 +519,138 @@ void MainWindow::conversionFinished(QVector<ConversionResult> results) {
                                 .arg(errors.join(QStringLiteral("; "))));
         statusBar()->showMessage(tr("Conversion finished with errors."), 8000);
     }
+}
+
+void MainWindow::addConvertedFile(ConversionResult result) {
+    const QFileInfo inputInfo(fromPath(result.inputPath));
+    QString baseName = inputInfo.completeBaseName();
+    if (baseName.isEmpty()) {
+        baseName = inputInfo.fileName();
+    }
+
+    const QString outputName = QString::fromStdString(result.outputFileName);
+    const QString sourceFormat = inputInfo.suffix().toUpper();
+    const QString targetFormat = QFileInfo(outputName).suffix().toUpper();
+    const qint64 byteCount = static_cast<qint64>(result.data.size());
+    auto payload = std::make_shared<QByteArray>(reinterpret_cast<const char *>(result.data.data()),
+                                                static_cast<int>(result.data.size()));
+
+    auto *row = new QWidget(m_convertedContainer);
+    row->setObjectName(QStringLiteral("convertedRow"));
+    row->setAttribute(Qt::WA_StyledBackground, true);
+    row->setMinimumHeight(76);
+    row->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    row->setStyleSheet(QStringLiteral(
+        "QWidget#convertedRow { background-color: #FFFFFF; border: 1px solid #E5E5E5;"
+        " border-radius: 8px; }"
+        "QWidget#convertedRow QLabel#convertedName { color: #1F1F1F; font-weight: 600; }"
+        "QWidget#convertedRow QLabel#convertedSize { color: #666666; }"));
+
+    auto *rowLayout = new QHBoxLayout(row);
+    rowLayout->setContentsMargins(12, 10, 12, 10);
+    rowLayout->setSpacing(8);
+
+    auto *textLayout = new QVBoxLayout();
+    textLayout->setContentsMargins(0, 0, 0, 0);
+    textLayout->setSpacing(2);
+
+    auto *nameLabel =
+        new QLabel(QStringLiteral("%1 (%2 → %3)").arg(baseName, sourceFormat, targetFormat), row);
+    nameLabel->setObjectName(QStringLiteral("convertedName"));
+    nameLabel->setTextFormat(Qt::PlainText);
+    nameLabel->setWordWrap(true);
+    nameLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+
+    auto *sizeLabel = new QLabel(
+        QLocale().formattedDataSize(byteCount, 1, QLocale::DataSizeTraditionalFormat), row);
+    sizeLabel->setObjectName(QStringLiteral("convertedSize"));
+    sizeLabel->setTextFormat(Qt::PlainText);
+
+    textLayout->addWidget(nameLabel);
+    textLayout->addWidget(sizeLabel);
+
+    auto *downloadButton = new QPushButton(row);
+    downloadButton->setObjectName(QStringLiteral("downloadButton"));
+    downloadButton->setCursor(Qt::PointingHandCursor);
+    downloadButton->setIcon(QIcon(QStringLiteral(":/icons/download.png")));
+    downloadButton->setIconSize(QSize(24, 24));
+    downloadButton->setFixedSize(40, 40);
+    downloadButton->setToolTip(tr("Download"));
+    downloadButton->setAccessibleName(tr("Download"));
+    downloadButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    downloadButton->setStyleSheet(
+        QStringLiteral("QPushButton { background-color: %1; border: none; border-radius: 8px;"
+                       " padding: 0; }"
+                       "QPushButton:hover { background-color: %2; }"
+                       "QPushButton:pressed { background-color: %3; }"
+                       "QPushButton:disabled { background-color: #E5E5E5; }")
+            .arg(kBrandRed.name(), brandRedDark().name(), kBrandRed.darker(140).name()));
+
+    rowLayout->addLayout(textLayout, 1);
+    rowLayout->addWidget(downloadButton, 0, Qt::AlignRight | Qt::AlignVCenter);
+
+    m_convertedLayout->insertWidget(m_convertedLayout->count() - 1, row);
+    QTimer::singleShot(0, row, [this, row] { m_convertedScroll->ensureWidgetVisible(row); });
+
+    row->setAcceptDrops(true);
+    row->installEventFilter(this);
+    for (QWidget *child : row->findChildren<QWidget *>()) {
+        child->setAcceptDrops(true);
+        child->installEventFilter(this);
+    }
+
+    connect(downloadButton, &QPushButton::clicked, this,
+            [this, payload, outputName, downloadButton] {
+                if (saveConvertedFile(*payload, outputName)) {
+                    payload->clear();
+                    payload->squeeze();
+                    downloadButton->setEnabled(false);
+                    downloadButton->setToolTip(tr("Downloaded"));
+                    downloadButton->setAccessibleName(tr("Downloaded"));
+                }
+            });
+}
+
+bool MainWindow::saveConvertedFile(const QByteArray &bytes, const QString &fileName) {
+    const QString downloads = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
+    const QString directory = downloads.isEmpty() ? QDir::homePath() : downloads;
+    QString path =
+        QFileDialog::getSaveFileName(this, tr("Save converted file"),
+                                     QDir(directory).filePath(fileName), tr("PNG image (*.png)"));
+
+    if (path.isEmpty()) {
+        return false;
+    }
+
+    if (!path.endsWith(QStringLiteral(".png"), Qt::CaseInsensitive)) {
+        path += QStringLiteral(".png");
+    }
+
+    QSaveFile file(path);
+    if (!file.open(QIODevice::WriteOnly)) {
+        QMessageBox::warning(
+            this, tr("Could not save file"),
+            tr("Could not open %1: %2").arg(QDir::toNativeSeparators(path), file.errorString()));
+        return false;
+    }
+
+    if (file.write(bytes) != bytes.size()) {
+        file.cancelWriting();
+        QMessageBox::warning(
+            this, tr("Could not save file"),
+            tr("Could not write %1: %2").arg(QDir::toNativeSeparators(path), file.errorString()));
+        return false;
+    }
+
+    if (!file.commit()) {
+        QMessageBox::warning(this, tr("Could not save file"),
+                             tr("Could not finish writing %1: %2")
+                                 .arg(QDir::toNativeSeparators(path), file.errorString()));
+        return false;
+    }
+
+    statusBar()->showMessage(tr("Saved %1").arg(QFileInfo(path).fileName()), 8000);
+    return true;
 }
 
 } // namespace morpho::ui
