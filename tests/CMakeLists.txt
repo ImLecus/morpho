@@ -1,14 +1,14 @@
-add_executable(morpho_jpeg_to_png_test jpeg_to_png_test.cpp)
+add_executable(morpho_image_conversion_test image_conversion_test.cpp)
 target_link_libraries(
-  morpho_jpeg_to_png_test
+  morpho_image_conversion_test
   PRIVATE morpho_backends morpho_project_warnings
 )
 
 add_test(
-  NAME jpeg_to_png.converts
-  COMMAND $<TARGET_FILE:morpho_jpeg_to_png_test> "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/tiny.jpg"
+  NAME image.roundtrip
+  COMMAND $<TARGET_FILE:morpho_image_conversion_test> "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/tiny.jpg"
 )
-set_tests_properties(jpeg_to_png.converts PROPERTIES TIMEOUT 30)
+set_tests_properties(image.roundtrip PROPERTIES TIMEOUT 60)
 
 add_executable(
   morpho_ui_drop_test
@@ -21,11 +21,11 @@ target_link_libraries(
 )
 
 add_test(
-  NAME ui.drop_jpeg
+  NAME ui.drop_image
   COMMAND $<TARGET_FILE:morpho_ui_drop_test> "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/tiny.jpg"
 )
 set_tests_properties(
-  ui.drop_jpeg
+  ui.drop_image
   PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
     TIMEOUT 30

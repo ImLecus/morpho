@@ -39,7 +39,7 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes build-essential clang cmake ninja-build libjpeg-turbo8-dev libpng-dev qt6-base-dev qt6-base-dev-tools
+          sudo apt-get install --yes build-essential clang cmake ninja-build libavif-dev libgif-dev libjpeg-turbo8-dev libpng-dev libtiff-dev libwebp-dev qt6-base-dev qt6-base-dev-tools
 
       - name: Configure
         run: cmake --preset ci

@@ -7,8 +7,9 @@
 
 namespace morpho::image {
 
-class JpegToPngConverter final : public ConversionService {
+class ImageConverter final : public ConversionService {
 public:
+    bool supportsInput(const std::filesystem::path &path) const override;
     ConversionResult convert(const ConversionRequest &request) override;
 };
 

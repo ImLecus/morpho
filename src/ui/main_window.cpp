@@ -28,7 +28,6 @@
 #include <QKeySequence>
 #include <QLabel>
 #include <QList>
-#include <QLocale>
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
@@ -53,12 +52,6 @@
 namespace morpho::ui {
 namespace {
 
-bool isJpegPath(const QString &path) {
-    const QString suffix = QFileInfo(path).suffix();
-    return suffix.compare(QStringLiteral("jpg"), Qt::CaseInsensitive) == 0 ||
-           suffix.compare(QStringLiteral("jpeg"), Qt::CaseInsensitive) == 0;
-}
-
 std::filesystem::path toPath(const QString &path) {
     return std::filesystem::path(QFile::encodeName(path).toStdString());
 }
@@ -66,6 +59,40 @@ std::filesystem::path toPath(const QString &path) {
 QString fromPath(const std::filesystem::path &path) {
     const std::string bytes = path.string();
     return QFile::decodeName(QByteArray(bytes.data(), static_cast<int>(bytes.size())));
+}
+
+QString cleanNumber(double value, int decimals) {
+    QString text = QString::number(value, 'f', decimals);
+    if (text.contains(QLatin1Char('.'))) {
+        while (text.endsWith(QLatin1Char('0'))) {
+            text.chop(1);
+        }
+        if (text.endsWith(QLatin1Char('.'))) {
+            text.chop(1);
+        }
+    }
+    return text;
+}
+
+QString formatBytes(std::uint64_t bytes) {
+    constexpr double kKibibyte = 1024.0;
+    constexpr double kMebibyte = kKibibyte * 1024.0;
+    constexpr double kGibibyte = kMebibyte * 1024.0;
+
+    if (bytes < static_cast<std::uint64_t>(kKibibyte)) {
+        return QStringLiteral("%1b").arg(static_cast<qulonglong>(bytes));
+    }
+    if (bytes < static_cast<std::uint64_t>(kMebibyte)) {
+        const double value = static_cast<double>(bytes) / kKibibyte;
+        return QStringLiteral("%1kb").arg(cleanNumber(value, value < 10.0 ? 1 : 0));
+    }
+    if (bytes < static_cast<std::uint64_t>(kGibibyte)) {
+        const double value = static_cast<double>(bytes) / kMebibyte;
+        return QStringLiteral("%1mb").arg(cleanNumber(value, value < 10.0 ? 1 : 0));
+    }
+
+    const double value = static_cast<double>(bytes) / kGibibyte;
+    return QStringLiteral("%1gb").arg(cleanNumber(value, value < 10.0 ? 1 : 0));
 }
 
 bool hasLocalFileUrls(const QMimeData *mimeData) {
@@ -80,26 +107,6 @@ bool hasLocalFileUrls(const QMimeData *mimeData) {
     }
 
     return false;
-}
-
-QStringList jpegFilesFromUrls(const QList<QUrl> &urls, int &skipped) {
-    QStringList files;
-
-    for (const QUrl &url : urls) {
-        if (!url.isLocalFile()) {
-            ++skipped;
-            continue;
-        }
-
-        const QString path = url.toLocalFile();
-        if (isJpegPath(path) && QFileInfo(path).isFile()) {
-            files.append(path);
-        } else {
-            ++skipped;
-        }
-    }
-
-    return files;
 }
 
 QLabel *makeLabel(const QString &text, QWidget *parent) {
@@ -168,14 +175,15 @@ MainWindow::MainWindow(ConversionService &conversionService, QWidget *parent)
     dropLayout->setContentsMargins(24, 24, 24, 24);
     dropLayout->setSpacing(8);
 
-    auto *dropTitle = makeLabel(tr("Drop JPG files here"), dropZone);
+    auto *dropTitle = makeLabel(tr("Drop images here"), dropZone);
     scaleFont(dropTitle, 1.35);
 
-    m_dropHint = makeLabel(tr("Drop JPG or JPEG files here. Converted PNGs appear in the sidebar."),
+    m_dropHint = makeLabel(tr("Drop PNG, JPEG, WEBP, AVIF, TIFF, BMP, or GIF files here. Converted "
+                              "images appear in the sidebar."),
                            dropZone);
 
-    auto *chooseButton = new QPushButton(tr("Choose JPG files"), dropZone);
-    chooseButton->setToolTip(tr("Select one or more JPG or JPEG files"));
+    auto *chooseButton = new QPushButton(tr("Choose images"), dropZone);
+    chooseButton->setToolTip(tr("Select one or more image files"));
     connect(chooseButton, &QPushButton::clicked, this, &MainWindow::chooseFiles);
 
     dropLayout->addStretch();
@@ -206,42 +214,39 @@ MainWindow::MainWindow(ConversionService &conversionService, QWidget *parent)
             " color: #FFFFFF; selection-background-color: %3; selection-color: #FFFFFF; }")
             .arg(kBrandRed.name(), brandRedDark().name(), kBrandRed.darker(140).name()));
 
-    auto *conversionLayout = new QHBoxLayout(conversionPanel);
-    conversionLayout->setContentsMargins(32, 24, 32, 24);
-    conversionLayout->setSpacing(12);
+    auto *conversionLayout = new QVBoxLayout(conversionPanel);
+    conversionLayout->setContentsMargins(32, 20, 32, 20);
+    conversionLayout->setSpacing(6);
 
-    auto *fromLabel = new QLabel(tr("From"), conversionPanel);
-    auto *fromCombo = new QComboBox(conversionPanel);
-    fromCombo->setObjectName(QStringLiteral("fromFormatCombo"));
-    fromCombo->setAccessibleName(tr("Input format"));
-    fromCombo->setMinimumWidth(160);
-    fromCombo->setToolTip(tr("JPG and JPEG inputs are supported for now."));
-    fromCombo->addItem(tr("JPG"), QStringLiteral("jpg"));
-    fromCombo->addItem(tr("JPEG"), QStringLiteral("jpeg"));
-    fromLabel->setBuddy(fromCombo);
+    auto *controlsLayout = new QHBoxLayout();
+    controlsLayout->setSpacing(12);
 
-    auto *toLabel = new QLabel(tr("To"), conversionPanel);
-    auto *toCombo = new QComboBox(conversionPanel);
-    toCombo->setObjectName(QStringLiteral("toFormatCombo"));
-    toCombo->setAccessibleName(tr("Output format"));
-    toCombo->setMinimumWidth(160);
-    toCombo->setToolTip(tr("PNG output is supported for now."));
-    toCombo->addItem(tr("PNG"), QStringLiteral("png"));
-    toLabel->setBuddy(toCombo);
+    auto *toLabel = new QLabel(tr("Convert to"), conversionPanel);
+    m_outputFormat = new QComboBox(conversionPanel);
+    m_outputFormat->setObjectName(QStringLiteral("toFormatCombo"));
+    m_outputFormat->setAccessibleName(tr("Output format"));
+    m_outputFormat->setMinimumWidth(200);
+    m_outputFormat->setToolTip(tr("Choose the output image format."));
+    m_outputFormat->addItem(tr("PNG"), QStringLiteral("png"));
+    m_outputFormat->addItem(tr("JPEG"), QStringLiteral("jpeg"));
+    m_outputFormat->addItem(tr("WEBP"), QStringLiteral("webp"));
+    m_outputFormat->addItem(tr("AVIF"), QStringLiteral("avif"));
+    m_outputFormat->addItem(tr("TIFF"), QStringLiteral("tiff"));
+    m_outputFormat->addItem(tr("BMP"), QStringLiteral("bmp"));
+    m_outputFormat->addItem(tr("GIF"), QStringLiteral("gif"));
+    toLabel->setBuddy(m_outputFormat);
 
-    auto *arrow = new QLabel(QStringLiteral("→"), conversionPanel);
-    scaleFont(arrow, 1.5);
-    QFont arrowFont = arrow->font();
-    arrowFont.setBold(true);
-    arrow->setFont(arrowFont);
+    controlsLayout->addStretch();
+    controlsLayout->addWidget(toLabel);
+    controlsLayout->addWidget(m_outputFormat);
+    controlsLayout->addStretch();
+    conversionLayout->addLayout(controlsLayout);
 
-    conversionLayout->addStretch();
-    conversionLayout->addWidget(fromLabel);
-    conversionLayout->addWidget(fromCombo);
-    conversionLayout->addWidget(arrow);
-    conversionLayout->addWidget(toLabel);
-    conversionLayout->addWidget(toCombo);
-    conversionLayout->addStretch();
+    auto *inputHint = new QLabel(tr("Input format is detected automatically."), conversionPanel);
+    inputHint->setAlignment(Qt::AlignCenter);
+    inputHint->setStyleSheet(QStringLiteral("color: rgba(255, 255, 255, 0.75);"
+                                            " font-weight: 400;"));
+    conversionLayout->addWidget(inputHint);
 
     layout->addWidget(title);
     layout->addWidget(subtitle);
@@ -306,7 +311,7 @@ MainWindow::MainWindow(ConversionService &conversionService, QWidget *parent)
         QStringLiteral("QStatusBar { background-color: #FFFFFF; color: #555555; }"));
 
     auto *fileMenu = menuBar()->addMenu(tr("&File"));
-    auto *openAction = fileMenu->addAction(tr("&Open JPG files..."));
+    auto *openAction = fileMenu->addAction(tr("&Open images..."));
     openAction->setShortcut(QKeySequence::Open);
     connect(openAction, &QAction::triggered, this, &MainWindow::chooseFiles);
     fileMenu->addSeparator();
@@ -314,7 +319,7 @@ MainWindow::MainWindow(ConversionService &conversionService, QWidget *parent)
     quitAction->setShortcut(QKeySequence::Quit);
     connect(quitAction, &QAction::triggered, this, &QWidget::close);
 
-    statusBar()->showMessage(tr("Ready. Drop JPG files to convert them to PNG."));
+    statusBar()->showMessage(tr("Ready. Drop images to convert them."));
 
     for (QWidget *widget : findChildren<QWidget *>()) {
         widget->setAcceptDrops(true);
@@ -344,17 +349,35 @@ void MainWindow::dragMoveEvent(QDragMoveEvent *event) {
     }
 }
 
-void MainWindow::dropEvent(QDropEvent *event) {
-    const QMimeData *mimeData = event->mimeData();
+QStringList MainWindow::supportedFiles(const QMimeData *mimeData, int &skipped) const {
+    QStringList files;
     if (mimeData == nullptr) {
-        event->ignore();
-        return;
+        return files;
     }
 
+    for (const QUrl &url : mimeData->urls()) {
+        if (!url.isLocalFile()) {
+            ++skipped;
+            continue;
+        }
+
+        const QString path = url.toLocalFile();
+        if (QFileInfo(path).isFile() && m_conversionService.supportsInput(toPath(path))) {
+            files.append(path);
+        } else {
+            ++skipped;
+        }
+    }
+
+    return files;
+}
+
+void MainWindow::dropEvent(QDropEvent *event) {
     int skipped = 0;
-    const QStringList files = jpegFilesFromUrls(mimeData->urls(), skipped);
+    const QStringList files = supportedFiles(event->mimeData(), skipped);
     if (files.isEmpty()) {
-        m_dropHint->setText(tr("Only JPG and JPEG files are supported right now."));
+        m_dropHint->setText(
+            tr("Unsupported image format. Use PNG, JPEG, WEBP, AVIF, TIFF, BMP, or GIF."));
         event->ignore();
         return;
     }
@@ -392,8 +415,10 @@ void MainWindow::chooseFiles() {
         return;
     }
 
-    const QStringList files = QFileDialog::getOpenFileNames(this, tr("Choose JPG files"), QString(),
-                                                            tr("JPEG images (*.jpg *.jpeg)"));
+    const QStringList files = QFileDialog::getOpenFileNames(
+        this, tr("Choose images"), QString(),
+        tr("Images (*.png *.jpg *.jpeg *.jpe *.jfif *.webp *.avif *.tif *.tiff *.bmp *.gif);;"
+           "All files (*)"));
     if (!files.isEmpty()) {
         startConversions(files);
     }
@@ -405,18 +430,19 @@ void MainWindow::startConversions(const QStringList &files) {
         return;
     }
 
-    QStringList jpegFiles;
+    QStringList imageFiles;
     int skipped = 0;
     for (const QString &file : files) {
-        if (isJpegPath(file) && QFileInfo(file).isFile()) {
-            jpegFiles.append(file);
+        if (QFileInfo(file).isFile() && m_conversionService.supportsInput(toPath(file))) {
+            imageFiles.append(file);
         } else {
             ++skipped;
         }
     }
 
-    if (jpegFiles.isEmpty()) {
-        m_dropHint->setText(tr("Only JPG and JPEG files are supported right now."));
+    if (imageFiles.isEmpty()) {
+        m_dropHint->setText(
+            tr("Unsupported image format. Use PNG, JPEG, WEBP, AVIF, TIFF, BMP, or GIF."));
         return;
     }
 
@@ -430,25 +456,33 @@ void MainWindow::startConversions(const QStringList &files) {
         m_worker.join();
     }
 
-    const int count = static_cast<int>(jpegFiles.size());
+    const QString outputFormat = m_outputFormat->currentData().toString();
+    if (outputFormat.isEmpty()) {
+        m_dropHint->setText(tr("Choose an output format first."));
+        return;
+    }
+
+    const int count = static_cast<int>(imageFiles.size());
     m_converting = true;
-    m_dropHint->setText(count == 1 ? tr("Converting 1 file to PNG...")
-                                   : tr("Converting %1 files to PNG...").arg(count));
+    m_dropHint->setText(count == 1 ? tr("Converting 1 image...")
+                                   : tr("Converting %1 images...").arg(count));
     statusBar()->showMessage(tr("Converting..."));
 
+    const std::string targetFormat = outputFormat.toStdString();
     auto *service = &m_conversionService;
-    m_worker = std::jthread([this, service, jpegFiles] {
+    m_worker = std::jthread([this, service, imageFiles, targetFormat] {
         QVector<ConversionResult> results;
 
         try {
-            results.reserve(jpegFiles.size());
+            results.reserve(imageFiles.size());
 
-            for (const QString &file : jpegFiles) {
+            for (const QString &file : imageFiles) {
                 ConversionRequest request;
                 ConversionResult result;
 
                 try {
                     request.inputPath = toPath(file);
+                    request.outputFormat = targetFormat;
                     result = service->convert(request);
                 } catch (const std::exception &exception) {
                     result.inputPath = request.inputPath;
@@ -505,8 +539,8 @@ void MainWindow::conversionFinished(QVector<ConversionResult> results) {
     if (converted == total) {
         m_dropHint->setText(
             converted == 1
-                ? tr("Converted 1 file to PNG. It is ready in the sidebar.")
-                : tr("Converted %1 files to PNG. They are ready in the sidebar.").arg(converted));
+                ? tr("Converted 1 image. It is ready in the sidebar.")
+                : tr("Converted %1 images. They are ready in the sidebar.").arg(converted));
         statusBar()->showMessage(tr("Conversion complete."), 8000);
     } else if (converted == 0) {
         m_dropHint->setText(
@@ -529,9 +563,11 @@ void MainWindow::addConvertedFile(ConversionResult result) {
     }
 
     const QString outputName = QString::fromStdString(result.outputFileName);
-    const QString sourceFormat = inputInfo.suffix().toUpper();
-    const QString targetFormat = QFileInfo(outputName).suffix().toUpper();
+    const QString sourceFormat = QString::fromStdString(result.inputFormat).toUpper();
+    const QString targetFormat = QString::fromStdString(result.outputFormat).toUpper();
     const qint64 byteCount = static_cast<qint64>(result.data.size());
+    const QString oldSize =
+        result.inputBytes == 0 ? QStringLiteral("?") : formatBytes(result.inputBytes);
     auto payload = std::make_shared<QByteArray>(reinterpret_cast<const char *>(result.data.data()),
                                                 static_cast<int>(result.data.size()));
 
@@ -562,7 +598,8 @@ void MainWindow::addConvertedFile(ConversionResult result) {
     nameLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
 
     auto *sizeLabel = new QLabel(
-        QLocale().formattedDataSize(byteCount, 1, QLocale::DataSizeTraditionalFormat), row);
+        QStringLiteral("%1 → %2").arg(oldSize, formatBytes(static_cast<std::uint64_t>(byteCount))),
+        row);
     sizeLabel->setObjectName(QStringLiteral("convertedSize"));
     sizeLabel->setTextFormat(Qt::PlainText);
 

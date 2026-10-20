@@ -12,11 +12,13 @@
 
 #include <thread>
 
+class QComboBox;
 class QDragEnterEvent;
 class QDragMoveEvent;
 class QDropEvent;
 class QEvent;
 class QLabel;
+class QMimeData;
 class QScrollArea;
 class QVBoxLayout;
 
@@ -37,6 +39,7 @@ protected:
 
 private:
     void chooseFiles();
+    QStringList supportedFiles(const QMimeData *mimeData, int &skipped) const;
     void startConversions(const QStringList &files);
     void conversionFinished(QVector<ConversionResult> results);
     void addConvertedFile(ConversionResult result);
@@ -45,6 +48,7 @@ private:
     ConversionService &m_conversionService;
     std::jthread m_worker;
     QLabel *m_dropHint = nullptr;
+    QComboBox *m_outputFormat = nullptr;
     QScrollArea *m_convertedScroll = nullptr;
     QWidget *m_convertedContainer = nullptr;
     QVBoxLayout *m_convertedLayout = nullptr;

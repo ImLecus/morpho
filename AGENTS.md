@@ -558,6 +558,7 @@ This table is the runtime allowlist. Anything else requires an ADR and maintaine
 | libavif + libaom / SVT-AV1 | BSD-2/3-Clause | Permissive; verify per release. AVIF output uses libavif. |
 | libvpx | BSD-3-Clause | VP9 encoding. |
 | libtiff | libtiff (BSD-like) | Permissive. |
+| giflib | MIT | Static GIF read/write. |
 | libarchive | BSD-2-Clause | Permissive. |
 | libharu | Zlib | Permissive; PDF writing. |
 | Catch2 | BSL-1.0 | Test-only. |

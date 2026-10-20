@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Morpho contributors
 
-#include "backends/image/jpeg_to_png.hpp"
+#include "backends/image/image_converter.hpp"
 #include "ui/main_window.hpp"
 #include "ui/theme.hpp"
 
@@ -50,25 +50,23 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    morpho::image::JpegToPngConverter converter;
+    morpho::image::ImageConverter converter;
     morpho::ui::MainWindow window(converter);
     window.show();
 
     QWidget *dropTarget = window.findChild<QWidget *>(QStringLiteral("dropZone"));
     auto *conversionPanel = window.findChild<QFrame *>(QStringLiteral("conversionPanel"));
-    auto *fromCombo = window.findChild<QComboBox *>(QStringLiteral("fromFormatCombo"));
     auto *toCombo = window.findChild<QComboBox *>(QStringLiteral("toFormatCombo"));
     auto *convertedScroll = window.findChild<QScrollArea *>(QStringLiteral("convertedScroll"));
 
-    if (dropTarget == nullptr || conversionPanel == nullptr || fromCombo == nullptr ||
-        toCombo == nullptr || convertedScroll == nullptr) {
-        std::cerr << "Could not find the drop area, conversion controls, or sidebar.\n";
+    if (dropTarget == nullptr || conversionPanel == nullptr || toCombo == nullptr ||
+        convertedScroll == nullptr) {
+        std::cerr << "Could not find the drop area, output format, or sidebar.\n";
         return 1;
     }
 
-    if (fromCombo->currentData().toString() != QStringLiteral("jpg") ||
-        toCombo->currentData().toString() != QStringLiteral("png")) {
-        std::cerr << "The conversion controls have unexpected defaults.\n";
+    if (toCombo->count() != 7 || toCombo->currentData().toString() != QStringLiteral("png")) {
+        std::cerr << "The output format list is incomplete or has an unexpected default.\n";
         return 1;
     }
 
@@ -149,14 +147,14 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    if (nameLabel->text() != QStringLiteral("tiny (JPG → PNG)")) {
+    if (nameLabel->text() != QStringLiteral("tiny (JPEG → PNG)")) {
         std::cerr << "The sidebar row has an unexpected file name.\n";
         return 1;
     }
 
-    if (sizeLabel->text().isEmpty() || !downloadButton->isEnabled() ||
-        !downloadButton->text().isEmpty() || downloadButton->icon().isNull() ||
-        downloadButton->icon().pixmap(32, 32).isNull() ||
+    if (sizeLabel->text().isEmpty() || !sizeLabel->text().contains(QStringLiteral("→")) ||
+        !downloadButton->isEnabled() || !downloadButton->text().isEmpty() ||
+        downloadButton->icon().isNull() || downloadButton->icon().pixmap(32, 32).isNull() ||
         downloadButton->toolTip() != QStringLiteral("Download")) {
         std::cerr << "The sidebar row has an unexpected size or download state.\n";
         return 1;
