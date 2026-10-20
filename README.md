@@ -5,13 +5,21 @@
 Morpho is a free, offline, local-first file converter for the desktop. It converts images, audio,
 video, documents, and archives without uploading files, creating accounts, or sending telemetry.
 
-**Status:** pre-alpha (M0). The Qt window, build skeleton, and CI are in place. Conversion
-backends are not implemented yet.
+**Status:** pre-alpha (M0 plus the first conversion). The Qt window, build skeleton, and CI are
+in place. Drag JPG/JPEG files into the window, or use **File > Open JPG files**, to write PNG
+copies next to the originals. This is the only conversion implemented so far.
 
 ## Build
 
-Requirements: Linux x86_64, CMake 3.28+, Ninja, Qt 6.4+ development packages, and GCC 13+ or
-Clang 18+.
+Requirements: Linux x86_64, CMake 3.28+, Ninja, Qt 6.4+ development packages,
+libjpeg-turbo and libpng development packages, and GCC 13+ or Clang 18+.
+
+On Ubuntu 24.04:
+
+```bash
+sudo apt install build-essential cmake ninja-build qt6-base-dev qt6-base-dev-tools \
+  libjpeg-turbo8-dev libpng-dev
+```
 
 ```bash
 cmake --preset dev

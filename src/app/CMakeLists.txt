@@ -4,7 +4,7 @@ qt_add_executable(
     "${PROJECT_SOURCE_DIR}/assets/morpho.qrc"
 )
 
-target_link_libraries(morpho PRIVATE morpho_ui morpho_project_warnings)
+target_link_libraries(morpho PRIVATE morpho_ui morpho_backends morpho_project_warnings)
 target_compile_definitions(morpho PRIVATE MORPHO_VERSION="${PROJECT_VERSION}")
 
 install(TARGETS morpho RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")

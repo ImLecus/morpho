@@ -1,0 +1,4 @@
+add_subdirectory(image)
+
+add_library(morpho_backends INTERFACE)
+target_link_libraries(morpho_backends INTERFACE morpho_image_backend)

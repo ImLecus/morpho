@@ -47,6 +47,8 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   endif()
 endif()
 
+find_package(JPEG REQUIRED)
+find_package(PNG REQUIRED)
 find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Widgets)
 qt_standard_project_setup()
 set(CMAKE_AUTORCC ON)

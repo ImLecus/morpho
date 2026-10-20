@@ -223,7 +223,7 @@ On failure or cancellation, delete the temporary output, preserve any pre-existi
 - Temporary output lives in a private directory inside the destination filesystem (`.morpho-tmp/<uuid>/`) so the final rename is atomic. Workspace files are created with mode `0600`; final files use `0666 & ~umask`.
 - Clean the workspace on success, failure, and cancellation. At startup, remove only stale Morpho workspaces older than seven days that match the exact internal pattern. Never delete arbitrary files.
 - Publish with a same-filesystem atomic rename. Flush the file before renaming. If the destination name exists, apply the selected policy: `Rename` (default, append ` (1)`, ` (2)`, and so on), `Overwrite` (explicit), or `Fail`.
-- The default output directory is the source file's directory for a single-file job, and the XDG downloads directory under a `Morpho` subdirectory for a batch. If the default is not writable, fall back to the downloads directory and make the fallback visible. Always show the output directory before conversion.
+- The default output directory is the source file's directory for each input, including batch jobs. If it is not writable, return an actionable error; a future setting will allow a different output directory. Always show where output will be written before conversion.
 - Preserve metadata by default when the target format supports it, and provide an explicit “Remove metadata” option. Never invent metadata values. Document per-format behavior and warn when location metadata is present.
 - Do not follow output symlinks. Writing a temporary file and renaming over a symlink replaces the symlink, which is acceptable; never write through an untrusted symlink target.
 - Check free space before converting. Require at least `max(input_size, 64 MiB) + 10%`, fail early with `NoSpace`, and keep the check cheap.
@@ -1045,8 +1045,8 @@ The UI should make the local-only guarantee visible without turning privacy into
 
 ### 13.6 Visual design
 
-- Use the system palette and native controls. Follow light/dark mode automatically.
-- No hard-coded colors. Use semantic roles (error, warning, success, muted).
+- The application currently uses a light brand theme: white surfaces, dark text, and the `#D92222` primary color sampled from the logo.
+- Keep brand colors in `src/ui/theme.hpp`. Do not scatter new color literals across widgets; use the theme helpers or semantic palette roles. System dark mode is a future enhancement.
 - Icons are SVG and inherit the palette.
 - Prefer a simple, dense, utilitarian layout over decorative chrome.
 - Motion is subtle and optional. No web-style landing pages inside the app.

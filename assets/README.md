@@ -4,7 +4,8 @@
   desktop icon. License: MIT, copyright Morpho contributors.
 - `icons/<size>/morpho.png` — Downscaled icons generated from `../morpho.png` with ImageMagick
   and stripped of metadata. Used by the Qt resource and the hicolor icon theme.
-- `morpho.qrc` — Qt resource manifest that embeds the multi-size icon set in the application
+- `icons/chevron-down.png` — White dropdown chevron used by the format selectors.
+- `morpho.qrc` — Qt resource manifest that embeds the icon set and UI glyphs in the application
   binary.
 
 Application icons use PNG. WebP is not used for the app icon because desktop icon themes and

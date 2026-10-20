@@ -12,8 +12,10 @@
 #include <QTimer>
 #include <QWindow>
 
+#include "backends/image/jpeg_to_png.hpp"
 #include "ui/app_icon.hpp"
 #include "ui/main_window.hpp"
+#include "ui/theme.hpp"
 
 namespace {
 
@@ -47,6 +49,7 @@ int main(int argc, char *argv[]) {
     }
 
     QApplication application(argc, argv);
+    morpho::ui::applyLightTheme();
     QCoreApplication::setOrganizationName(QStringLiteral("Morpho"));
     QCoreApplication::setApplicationName(QStringLiteral("Morpho"));
     QCoreApplication::setApplicationVersion(QString::fromLatin1(MORPHO_VERSION));
@@ -54,7 +57,8 @@ int main(int argc, char *argv[]) {
     const QIcon resourceIcon = morpho::ui::appIcon();
     QApplication::setWindowIcon(resourceIcon);
 
-    morpho::ui::MainWindow window;
+    morpho::image::JpegToPngConverter converter;
+    morpho::ui::MainWindow window(converter);
     window.show();
     if (auto *handle = window.windowHandle()) {
         handle->setIcon(resourceIcon);
