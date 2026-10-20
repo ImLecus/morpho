@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Morpho contributors
 
-#include "backends/image/image_converter.hpp"
+#include "backends/morpho_converter.hpp"
 #include "ui/main_window.hpp"
 #include "ui/theme.hpp"
 
@@ -29,8 +29,8 @@
 #include <iostream>
 
 int main(int argc, char *argv[]) {
-    if (argc != 2) {
-        std::cerr << "Usage: morpho_ui_drop_test <input.jpg>\n";
+    if (argc < 2 || argc > 3) {
+        std::cerr << "Usage: morpho_ui_drop_test <input.jpg> [input.mp4]\n";
         return 2;
     }
 
@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    morpho::image::ImageConverter converter;
+    morpho::MorphoConverter converter;
     morpho::ui::MainWindow window(converter);
     window.show();
 
@@ -65,7 +65,10 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    if (toCombo->count() != 7 || toCombo->currentData().toString() != QStringLiteral("png")) {
+    if (toCombo->count() != 19 || toCombo->currentData().toString() != QStringLiteral("png") ||
+        toCombo->itemData(8).toString() != QStringLiteral("mp3") ||
+        toCombo->itemData(15).toString() != QStringLiteral("mp4") ||
+        toCombo->itemData(18).toString() != QStringLiteral("mov")) {
         std::cerr << "The output format list is incomplete or has an unexpected default.\n";
         return 1;
     }
@@ -171,6 +174,79 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    std::cout << "Drag-and-drop conversion produced an in-memory PNG in the sidebar.\n";
+    if (argc == 3) {
+        const QString mediaFixture = QString::fromLocal8Bit(argv[2]);
+        const QString mediaInput = temporaryDirectory.filePath(QStringLiteral("tiny.mp4"));
+        if (!QFile::copy(mediaFixture, mediaInput)) {
+            std::cerr << "Could not copy the media fixture.\n";
+            return 1;
+        }
+
+        int mp3Index = -1;
+        for (int i = 0; i < toCombo->count(); ++i) {
+            if (toCombo->itemData(i).toString() == QStringLiteral("mp3")) {
+                mp3Index = i;
+                break;
+            }
+        }
+        if (mp3Index < 0) {
+            std::cerr << "Could not find the MP3 output option.\n";
+            return 1;
+        }
+        toCombo->setCurrentIndex(mp3Index);
+
+        QMimeData mediaMimeData;
+        mediaMimeData.setUrls({QUrl::fromLocalFile(mediaInput)});
+        QDragEnterEvent mediaEnterEvent(QPoint(10, 10), Qt::CopyAction, &mediaMimeData,
+                                        Qt::LeftButton, Qt::NoModifier);
+        QCoreApplication::sendEvent(dropTarget, &mediaEnterEvent);
+        if (!mediaEnterEvent.isAccepted()) {
+            std::cerr << "The media drag-enter event was not accepted.\n";
+            return 1;
+        }
+
+        QDropEvent mediaDropEvent(QPointF(10.0, 10.0), Qt::CopyAction, &mediaMimeData,
+                                  Qt::LeftButton, Qt::NoModifier);
+        QCoreApplication::sendEvent(dropTarget, &mediaDropEvent);
+        if (!mediaDropEvent.isAccepted()) {
+            std::cerr << "The media drop event was not accepted.\n";
+            return 1;
+        }
+
+        QElapsedTimer mediaTimer;
+        mediaTimer.start();
+        while (window.findChildren<QWidget *>(QStringLiteral("convertedRow")).size() < 2 &&
+               mediaTimer.elapsed() < 5000) {
+            QCoreApplication::processEvents(QEventLoop::AllEvents, 50);
+            QThread::msleep(10);
+        }
+
+        const QList<QWidget *> mediaRows =
+            window.findChildren<QWidget *>(QStringLiteral("convertedRow"));
+        if (mediaRows.size() != 2) {
+            std::cerr << "The media conversion did not appear in the sidebar.\n";
+            return 1;
+        }
+
+        if (QFileInfo::exists(temporaryDirectory.filePath(QStringLiteral("tiny.mp3")))) {
+            std::cerr << "The media conversion wrote output to disk.\n";
+            return 1;
+        }
+
+        bool foundMediaRow = false;
+        for (QWidget *mediaRow : mediaRows) {
+            auto *mediaName = mediaRow->findChild<QLabel *>(QStringLiteral("convertedName"));
+            if (mediaName != nullptr && mediaName->text() == QStringLiteral("tiny (MP4 → MP3)")) {
+                foundMediaRow = true;
+                break;
+            }
+        }
+        if (!foundMediaRow) {
+            std::cerr << "The media sidebar row has an unexpected name.\n";
+            return 1;
+        }
+    }
+
+    std::cout << "Drag-and-drop conversions produced in-memory results in the sidebar.\n";
     return 0;
 }

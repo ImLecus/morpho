@@ -10,6 +10,18 @@ add_test(
 )
 set_tests_properties(image.roundtrip PROPERTIES TIMEOUT 60)
 
+add_executable(morpho_media_conversion_test media_conversion_test.cpp)
+target_link_libraries(
+  morpho_media_conversion_test
+  PRIVATE morpho_backends morpho_project_warnings
+)
+
+add_test(
+  NAME media.roundtrip
+  COMMAND $<TARGET_FILE:morpho_media_conversion_test> "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/tiny.mp4"
+)
+set_tests_properties(media.roundtrip PROPERTIES TIMEOUT 120)
+
 add_executable(
   morpho_ui_drop_test
   ui_drop_test.cpp
@@ -21,11 +33,11 @@ target_link_libraries(
 )
 
 add_test(
-  NAME ui.drop_image
-  COMMAND $<TARGET_FILE:morpho_ui_drop_test> "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/tiny.jpg"
+  NAME ui.drop_files
+  COMMAND $<TARGET_FILE:morpho_ui_drop_test> "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/tiny.jpg" "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/tiny.mp4"
 )
 set_tests_properties(
-  ui.drop_image
+  ui.drop_files
   PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
     TIMEOUT 30

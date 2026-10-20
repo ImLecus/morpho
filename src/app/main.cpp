@@ -12,7 +12,7 @@
 #include <QTimer>
 #include <QWindow>
 
-#include "backends/image/image_converter.hpp"
+#include "backends/morpho_converter.hpp"
 #include "ui/app_icon.hpp"
 #include "ui/main_window.hpp"
 #include "ui/theme.hpp"
@@ -57,7 +57,7 @@ int main(int argc, char *argv[]) {
     const QIcon resourceIcon = morpho::ui::appIcon();
     QApplication::setWindowIcon(resourceIcon);
 
-    morpho::image::ImageConverter converter;
+    morpho::MorphoConverter converter;
     morpho::ui::MainWindow window(converter);
     window.show();
     if (auto *handle = window.windowHandle()) {

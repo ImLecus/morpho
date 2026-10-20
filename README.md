@@ -5,22 +5,31 @@
 Morpho is a free, offline, local-first file converter for the desktop. It converts images, audio,
 video, documents, and archives without uploading files, creating accounts, or sending telemetry.
 
-**Status:** pre-alpha. The Qt window, build skeleton, and CI are in place. Drag PNG, JPEG,
-WEBP, AVIF, TIFF, BMP, or GIF files into the window, choose an output format, and the converted
-images stay in memory in the right sidebar as entries such as `foto (JPEG → PNG)`, with the old
-and new file sizes and a **Download** button.
+**Status:** pre-alpha. The Qt window, build skeleton, and CI are in place. Drag image, audio, or
+video files into the window, choose an output format, and the results stay in memory in the right
+sidebar as entries such as `foto (JPEG → PNG)`, with the old and new file sizes and a
+**Download** button.
+
+Supported outputs: PNG, JPEG, WEBP, AVIF, TIFF, BMP, GIF, MP3, M4A, OPUS, OGG, FLAC, WAV, MP4,
+WEBM, MKV, MOV. Input formats are detected automatically.
 
 ## Build
 
 Requirements: Linux x86_64, CMake 3.28+, Ninja, Qt 6.4+ development packages, libjpeg-turbo,
-libpng, libwebp, libavif, libtiff, and giflib development packages, and GCC 13+ or Clang 18+.
+libpng, libwebp, libavif, libtiff, giflib, and FFmpeg development libraries, plus GCC 13+ or
+Clang 18+.
 
 On Ubuntu 24.04:
 
 ```bash
 sudo apt install build-essential cmake ninja-build qt6-base-dev qt6-base-dev-tools \
-  libjpeg-turbo8-dev libpng-dev libwebp-dev libavif-dev libtiff-dev libgif-dev
+  libjpeg-turbo8-dev libpng-dev libwebp-dev libavif-dev libtiff-dev libgif-dev \
+  libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev
 ```
+
+The distribution build must use an LGPL FFmpeg configuration (`--disable-gpl
+--disable-nonfree --disable-network`). The Ubuntu development packages are used for development
+and testing only. MP4 and MOV currently use MPEG-4 Part 2 + AAC; WEBM and MKV use VP9 + Opus.
 
 ```bash
 cmake --preset dev

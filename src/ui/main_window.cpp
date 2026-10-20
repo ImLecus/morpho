@@ -175,15 +175,15 @@ MainWindow::MainWindow(ConversionService &conversionService, QWidget *parent)
     dropLayout->setContentsMargins(24, 24, 24, 24);
     dropLayout->setSpacing(8);
 
-    auto *dropTitle = makeLabel(tr("Drop images here"), dropZone);
+    auto *dropTitle = makeLabel(tr("Drop files here"), dropZone);
     scaleFont(dropTitle, 1.35);
 
-    m_dropHint = makeLabel(tr("Drop PNG, JPEG, WEBP, AVIF, TIFF, BMP, or GIF files here. Converted "
-                              "images appear in the sidebar."),
-                           dropZone);
+    m_dropHint = makeLabel(
+        tr("Drop images, audio, or video files here. Converted files appear in the sidebar."),
+        dropZone);
 
-    auto *chooseButton = new QPushButton(tr("Choose images"), dropZone);
-    chooseButton->setToolTip(tr("Select one or more image files"));
+    auto *chooseButton = new QPushButton(tr("Choose files"), dropZone);
+    chooseButton->setToolTip(tr("Select one or more image, audio, or video files"));
     connect(chooseButton, &QPushButton::clicked, this, &MainWindow::chooseFiles);
 
     dropLayout->addStretch();
@@ -226,7 +226,7 @@ MainWindow::MainWindow(ConversionService &conversionService, QWidget *parent)
     m_outputFormat->setObjectName(QStringLiteral("toFormatCombo"));
     m_outputFormat->setAccessibleName(tr("Output format"));
     m_outputFormat->setMinimumWidth(200);
-    m_outputFormat->setToolTip(tr("Choose the output image format."));
+    m_outputFormat->setToolTip(tr("Choose the output format."));
     m_outputFormat->addItem(tr("PNG"), QStringLiteral("png"));
     m_outputFormat->addItem(tr("JPEG"), QStringLiteral("jpeg"));
     m_outputFormat->addItem(tr("WEBP"), QStringLiteral("webp"));
@@ -234,6 +234,18 @@ MainWindow::MainWindow(ConversionService &conversionService, QWidget *parent)
     m_outputFormat->addItem(tr("TIFF"), QStringLiteral("tiff"));
     m_outputFormat->addItem(tr("BMP"), QStringLiteral("bmp"));
     m_outputFormat->addItem(tr("GIF"), QStringLiteral("gif"));
+    m_outputFormat->insertSeparator(m_outputFormat->count());
+    m_outputFormat->addItem(tr("MP3"), QStringLiteral("mp3"));
+    m_outputFormat->addItem(tr("M4A"), QStringLiteral("m4a"));
+    m_outputFormat->addItem(tr("OPUS"), QStringLiteral("opus"));
+    m_outputFormat->addItem(tr("OGG"), QStringLiteral("vorbis"));
+    m_outputFormat->addItem(tr("FLAC"), QStringLiteral("flac"));
+    m_outputFormat->addItem(tr("WAV"), QStringLiteral("wav"));
+    m_outputFormat->insertSeparator(m_outputFormat->count());
+    m_outputFormat->addItem(tr("MP4"), QStringLiteral("mp4"));
+    m_outputFormat->addItem(tr("WEBM"), QStringLiteral("webm"));
+    m_outputFormat->addItem(tr("MKV"), QStringLiteral("mkv"));
+    m_outputFormat->addItem(tr("MOV"), QStringLiteral("mov"));
     toLabel->setBuddy(m_outputFormat);
 
     controlsLayout->addStretch();
@@ -311,7 +323,7 @@ MainWindow::MainWindow(ConversionService &conversionService, QWidget *parent)
         QStringLiteral("QStatusBar { background-color: #FFFFFF; color: #555555; }"));
 
     auto *fileMenu = menuBar()->addMenu(tr("&File"));
-    auto *openAction = fileMenu->addAction(tr("&Open images..."));
+    auto *openAction = fileMenu->addAction(tr("&Open files..."));
     openAction->setShortcut(QKeySequence::Open);
     connect(openAction, &QAction::triggered, this, &MainWindow::chooseFiles);
     fileMenu->addSeparator();
@@ -319,7 +331,7 @@ MainWindow::MainWindow(ConversionService &conversionService, QWidget *parent)
     quitAction->setShortcut(QKeySequence::Quit);
     connect(quitAction, &QAction::triggered, this, &QWidget::close);
 
-    statusBar()->showMessage(tr("Ready. Drop images to convert them."));
+    statusBar()->showMessage(tr("Ready. Drop files to convert them."));
 
     for (QWidget *widget : findChildren<QWidget *>()) {
         widget->setAcceptDrops(true);
@@ -376,8 +388,7 @@ void MainWindow::dropEvent(QDropEvent *event) {
     int skipped = 0;
     const QStringList files = supportedFiles(event->mimeData(), skipped);
     if (files.isEmpty()) {
-        m_dropHint->setText(
-            tr("Unsupported image format. Use PNG, JPEG, WEBP, AVIF, TIFF, BMP, or GIF."));
+        m_dropHint->setText(tr("Unsupported file format."));
         event->ignore();
         return;
     }
@@ -416,9 +427,10 @@ void MainWindow::chooseFiles() {
     }
 
     const QStringList files = QFileDialog::getOpenFileNames(
-        this, tr("Choose images"), QString(),
-        tr("Images (*.png *.jpg *.jpeg *.jpe *.jfif *.webp *.avif *.tif *.tiff *.bmp *.gif);;"
-           "All files (*)"));
+        this, tr("Choose files"), QString(),
+        tr("Media files (*.png *.jpg *.jpeg *.jpe *.jfif *.webp *.avif *.tif *.tiff *.bmp "
+           "*.gif *.mp3 *.m4a *.aac *.opus *.ogg *.oga *.flac *.wav *.mp4 *.m4v *.webm "
+           "*.mkv *.mov *.avi *.wmv *.flv *.ts *.m2ts *.3gp *.ogv);;All files (*)"));
     if (!files.isEmpty()) {
         startConversions(files);
     }
@@ -430,19 +442,18 @@ void MainWindow::startConversions(const QStringList &files) {
         return;
     }
 
-    QStringList imageFiles;
+    QStringList filesToConvert;
     int skipped = 0;
     for (const QString &file : files) {
         if (QFileInfo(file).isFile() && m_conversionService.supportsInput(toPath(file))) {
-            imageFiles.append(file);
+            filesToConvert.append(file);
         } else {
             ++skipped;
         }
     }
 
-    if (imageFiles.isEmpty()) {
-        m_dropHint->setText(
-            tr("Unsupported image format. Use PNG, JPEG, WEBP, AVIF, TIFF, BMP, or GIF."));
+    if (filesToConvert.isEmpty()) {
+        m_dropHint->setText(tr("Unsupported file format."));
         return;
     }
 
@@ -462,21 +473,21 @@ void MainWindow::startConversions(const QStringList &files) {
         return;
     }
 
-    const int count = static_cast<int>(imageFiles.size());
+    const int count = static_cast<int>(filesToConvert.size());
     m_converting = true;
-    m_dropHint->setText(count == 1 ? tr("Converting 1 image...")
-                                   : tr("Converting %1 images...").arg(count));
+    m_dropHint->setText(count == 1 ? tr("Converting 1 file...")
+                                   : tr("Converting %1 files...").arg(count));
     statusBar()->showMessage(tr("Converting..."));
 
     const std::string targetFormat = outputFormat.toStdString();
     auto *service = &m_conversionService;
-    m_worker = std::jthread([this, service, imageFiles, targetFormat] {
+    m_worker = std::jthread([this, service, filesToConvert, targetFormat] {
         QVector<ConversionResult> results;
 
         try {
-            results.reserve(imageFiles.size());
+            results.reserve(filesToConvert.size());
 
-            for (const QString &file : imageFiles) {
+            for (const QString &file : filesToConvert) {
                 ConversionRequest request;
                 ConversionResult result;
 
@@ -539,8 +550,8 @@ void MainWindow::conversionFinished(QVector<ConversionResult> results) {
     if (converted == total) {
         m_dropHint->setText(
             converted == 1
-                ? tr("Converted 1 image. It is ready in the sidebar.")
-                : tr("Converted %1 images. They are ready in the sidebar.").arg(converted));
+                ? tr("Converted 1 file. It is ready in the sidebar.")
+                : tr("Converted %1 files. They are ready in the sidebar.").arg(converted));
         statusBar()->showMessage(tr("Conversion complete."), 8000);
     } else if (converted == 0) {
         m_dropHint->setText(
@@ -651,16 +662,21 @@ void MainWindow::addConvertedFile(ConversionResult result) {
 bool MainWindow::saveConvertedFile(const QByteArray &bytes, const QString &fileName) {
     const QString downloads = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
     const QString directory = downloads.isEmpty() ? QDir::homePath() : downloads;
-    QString path =
-        QFileDialog::getSaveFileName(this, tr("Save converted file"),
-                                     QDir(directory).filePath(fileName), tr("PNG image (*.png)"));
+    const QString extension = QFileInfo(fileName).suffix();
+    const QString filter =
+        extension.isEmpty()
+            ? tr("All files (*)")
+            : tr("%1 file (*.%2);;All files (*)").arg(extension.toUpper(), extension);
+    QString path = QFileDialog::getSaveFileName(this, tr("Save converted file"),
+                                                QDir(directory).filePath(fileName), filter);
 
     if (path.isEmpty()) {
         return false;
     }
 
-    if (!path.endsWith(QStringLiteral(".png"), Qt::CaseInsensitive)) {
-        path += QStringLiteral(".png");
+    const QString suffix = QStringLiteral(".") + extension;
+    if (!extension.isEmpty() && !path.endsWith(suffix, Qt::CaseInsensitive)) {
+        path += suffix;
     }
 
     QSaveFile file(path);

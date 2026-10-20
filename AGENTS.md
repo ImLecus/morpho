@@ -153,8 +153,9 @@ Public headers under `include/morpho/` expose only standard-library types and Mo
 | `core/engine` | Job scheduler, worker pool, cancellation, progress, conversion pipeline, output finalization, verification. |
 | `core/io` | Path handling, magic-byte detection, atomic output files, temporary workspaces, disk-space checks. |
 | `backends/image` | PNG, JPEG, WebP, AVIF, TIFF, BMP, GIF, and future image formats. |
-| `backends/audio` | MP3, AAC/M4A, Opus, Vorbis, FLAC, WAV. |
-| `backends/video` | MP4, WebM, MKV, MOV, animated GIF. |
+| `backends/media` | Audio and video decode/encode through FFmpeg: MP3, M4A/AAC, Opus, Vorbis, FLAC, WAV, MP4, WebM, MKV, MOV, GIF. |
+| `backends/audio` | Future split for audio-specific options; audio currently lives in `backends/media`. |
+| `backends/video` | Future split for video-specific options; video currently lives in `backends/media`. |
 | `backends/document` | Image/text to PDF; PDF input only after an approved ADR. |
 | `backends/archive` | ZIP, TAR, 7Z inspection and extraction with strict safety limits. |
 | `platform` | XDG paths, temporary storage, desktop integration, and Linux-specific services. |
@@ -644,6 +645,7 @@ Target layout. Create directories only when they contain files; git does not tra
 |   |   `-- io/
 |   |-- backends/
 |   |   |-- image/
+|   |   |-- media/
 |   |   |-- audio/
 |   |   |-- video/
 |   |   |-- document/
