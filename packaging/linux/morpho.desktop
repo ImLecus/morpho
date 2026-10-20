@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Morpho
+GenericName=File Converter
+Comment=Convert files offline. Nothing leaves your device.
+Exec=morpho
+Icon=morpho
+StartupWMClass=morpho
+Terminal=false
+Categories=Utility;FileTools;
+Keywords=convert;converter;image;audio;video;document;archive;
+StartupNotify=true

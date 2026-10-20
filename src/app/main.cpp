@@ -1,15 +1,19 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Morpho contributors
 
-#include "ui/main_window.hpp"
-
 #include <iostream>
 #include <string_view>
 
 #include <QApplication>
 #include <QCoreApplication>
+#include <QGuiApplication>
+#include <QIcon>
 #include <QString>
 #include <QTimer>
+#include <QWindow>
+
+#include "ui/app_icon.hpp"
+#include "ui/main_window.hpp"
 
 namespace {
 
@@ -46,11 +50,22 @@ int main(int argc, char *argv[]) {
     QCoreApplication::setOrganizationName(QStringLiteral("Morpho"));
     QCoreApplication::setApplicationName(QStringLiteral("Morpho"));
     QCoreApplication::setApplicationVersion(QString::fromLatin1(MORPHO_VERSION));
+    QGuiApplication::setDesktopFileName(QStringLiteral("morpho"));
+    const QIcon resourceIcon = morpho::ui::appIcon();
+    QApplication::setWindowIcon(resourceIcon);
 
     morpho::ui::MainWindow window;
     window.show();
+    if (auto *handle = window.windowHandle()) {
+        handle->setIcon(resourceIcon);
+    }
 
     if (smokeTest) {
+        if (QGuiApplication::windowIcon().isNull()) {
+            std::cerr << "Morpho application icon failed to load\n";
+            return 1;
+        }
+
         QTimer::singleShot(0, &application, &QCoreApplication::quit);
     }
 

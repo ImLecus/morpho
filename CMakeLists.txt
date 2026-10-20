@@ -49,6 +49,7 @@ endif()
 
 find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Widgets)
 qt_standard_project_setup()
+set(CMAKE_AUTORCC ON)
 
 add_subdirectory(src)
 

@@ -667,6 +667,7 @@ Target layout. Create directories only when they contain files; git does not tra
 |   |-- appimage/
 |   |-- flatpak/
 |   |-- deb/
+|   |-- linux/
 |   `-- ffmpeg/
 |-- scripts/
 `-- translations/

@@ -1,6 +1,8 @@
 add_library(
   morpho_ui
   STATIC
+    app_icon.cpp
+    app_icon.hpp
     main_window.cpp
     main_window.hpp
 )

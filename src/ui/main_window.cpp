@@ -15,6 +15,8 @@
 #include <QVBoxLayout>
 #include <QWidget>
 
+#include "ui/app_icon.hpp"
+
 namespace morpho::ui {
 namespace {
 
@@ -39,6 +41,7 @@ void scaleFont(QLabel *label, double factor) {
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     setWindowTitle(tr("Morpho"));
+    setWindowIcon(appIcon());
     setMinimumSize(640, 420);
     resize(900, 560);
 
