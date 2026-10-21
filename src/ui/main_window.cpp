@@ -179,11 +179,11 @@ MainWindow::MainWindow(ConversionService &conversionService, QWidget *parent)
     scaleFont(dropTitle, 1.35);
 
     m_dropHint = makeLabel(
-        tr("Drop images, audio, or video files here. Converted files appear in the sidebar."),
+        tr("Drop images, audio, video, or documents here. Converted files appear in the sidebar."),
         dropZone);
 
     auto *chooseButton = new QPushButton(tr("Choose files"), dropZone);
-    chooseButton->setToolTip(tr("Select one or more image, audio, or video files"));
+    chooseButton->setToolTip(tr("Select one or more image, audio, video, or document files"));
     connect(chooseButton, &QPushButton::clicked, this, &MainWindow::chooseFiles);
 
     dropLayout->addStretch();
@@ -246,6 +246,10 @@ MainWindow::MainWindow(ConversionService &conversionService, QWidget *parent)
     m_outputFormat->addItem(tr("WEBM"), QStringLiteral("webm"));
     m_outputFormat->addItem(tr("MKV"), QStringLiteral("mkv"));
     m_outputFormat->addItem(tr("MOV"), QStringLiteral("mov"));
+    m_outputFormat->insertSeparator(m_outputFormat->count());
+    m_outputFormat->addItem(tr("PDF"), QStringLiteral("pdf"));
+    m_outputFormat->addItem(tr("DOCX"), QStringLiteral("docx"));
+    m_outputFormat->addItem(tr("ODT"), QStringLiteral("odt"));
     toLabel->setBuddy(m_outputFormat);
 
     controlsLayout->addStretch();
@@ -428,9 +432,10 @@ void MainWindow::chooseFiles() {
 
     const QStringList files = QFileDialog::getOpenFileNames(
         this, tr("Choose files"), QString(),
-        tr("Media files (*.png *.jpg *.jpeg *.jpe *.jfif *.webp *.avif *.tif *.tiff *.bmp "
+        tr("Supported files (*.png *.jpg *.jpeg *.jpe *.jfif *.webp *.avif *.tif *.tiff *.bmp "
            "*.gif *.mp3 *.m4a *.aac *.opus *.ogg *.oga *.flac *.wav *.mp4 *.m4v *.webm "
-           "*.mkv *.mov *.avi *.wmv *.flv *.ts *.m2ts *.3gp *.ogv);;All files (*)"));
+           "*.mkv *.mov *.avi *.wmv *.flv *.ts *.m2ts *.3gp *.ogv *.md *.markdown "
+           "*.docx *.doc *.odt *.rtf *.txt);;All files (*)"));
     if (!files.isEmpty()) {
         startConversions(files);
     }

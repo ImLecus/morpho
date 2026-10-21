@@ -2,7 +2,7 @@
 
 > **Audience:** maintainers, contributors, reviewers, and AI coding agents.
 > **Scope:** the entire repository.
-> **Status:** pre-alpha, foundation phase (October 2026).
+> **Status:** pre-alpha, implementation phase (October 2026).
 > **Read this first.** Subdirectories may add a local `AGENTS.md` with extra rules. Local rules MUST NOT contradict this file.
 
 ## 0. How to use this document
@@ -14,7 +14,7 @@ This file is the shared engineering contract for Morpho. It explains what we are
 - **MAY** means optional.
 - When this document and a code comment disagree, this document wins. Fix the comment.
 - When this document and a local `AGENTS.md` disagree, stop and ask a maintainer.
-- The repository is at milestone **M0**. Some paths and scripts referenced here are planned and do not exist yet. Create them as part of the relevant milestone, not all at once.
+- The repository has completed the M0 foundation and has initial image, audio, video, and document support. Some paths and scripts referenced here are planned and do not exist yet. Create them as part of the relevant milestone, not all at once.
 
 All repository artifacts are written in **US English**: code, identifiers, comments, commit messages, documentation, issue templates, and source UI strings. Conversations with users may happen in any language; the repository stays English.
 
@@ -72,7 +72,7 @@ Morpho is a free, offline, local-first file converter for the desktop. It conver
 - An online service, URL downloading, cloud storage, accounts, sync, telemetry, ads, or paid plans.
 - A media editor, image editor, office suite, OCR tool, or AI upscaler.
 - Running external converter binaries (`ffmpeg`, ImageMagick, LibreOffice, Pandoc, and similar) at runtime.
-- Office document conversion in 1.0. It is only in scope if a permissively licensed, embeddable engine is approved through an ADR. Bundling a headless LibreOffice is explicitly prohibited.
+- Bundling LibreOffice or launching `libreoffice`, `soffice`, or Pandoc as an external process. Office formats use the optional in-process LibreOfficeKit engine accepted in ADR 0001; the host LibreOffice runtime is not bundled.
 - A plugin marketplace or dynamically loaded third-party plugins in 1.x.
 - Mobile, web, or server editions.
 - DRM circumvention or conversion of protected content.
@@ -80,7 +80,7 @@ Morpho is a free, offline, local-first file converter for the desktop. It conver
 
 ### 1.5 Current status
 
-M0 is the foundation phase. The repository currently contains this guide, a README, and the project logo; the application source has not been scaffolded. The first milestone establishes the build, CI, core skeleton, Qt window, CLI skeleton, tests, and packaging skeleton. Do not assume planned files exist; inspect the tree before relying on them.
+M0 is complete. The repository has a Qt window, CMake presets, CI, tests, and initial image, audio, video, and document backends. Media progress, cancellation, CLI coverage, packaging, and the remaining format families are still in progress. Do not assume planned files exist; inspect the tree before relying on them.
 
 ## 2. Foundational decisions
 
@@ -137,7 +137,7 @@ Dependencies point inward. Higher layers know about lower layers; lower layers n
 ```
 
 - `core` MUST NOT include Qt, UI, CLI, or backend headers. It may use the C++ standard library and approved small utilities.
-- `backends` MAY use `core`, their third-party codec libraries, and approved wrappers. They MUST NOT use Qt or UI code.
+- `backends` MAY use `core`, their third-party codec libraries, and approved wrappers. They MUST NOT use Qt or UI code, except `backends/document`, which may use Qt Gui for Markdown-to-PDF rendering as recorded in ADR 0001. That exception must not leak Qt types into public headers or into other backends.
 - `ui` MAY use `core` and Qt. It MUST NOT include backend implementation headers; it talks to the engine through service interfaces.
 - `cli` MAY use `core` and the engine. It MUST NOT depend on Qt.
 - `app` is the composition root. It wires concrete backends, platform services, UI, and CLI entry points.
@@ -156,7 +156,7 @@ Public headers under `include/morpho/` expose only standard-library types and Mo
 | `backends/media` | Audio and video decode/encode through FFmpeg: MP3, M4A/AAC, Opus, Vorbis, FLAC, WAV, MP4, WebM, MKV, MOV, GIF. |
 | `backends/audio` | Future split for audio-specific options; audio currently lives in `backends/media`. |
 | `backends/video` | Future split for video-specific options; video currently lives in `backends/media`. |
-| `backends/document` | Image/text to PDF; PDF input only after an approved ADR. |
+| `backends/document` | Markdown to PDF through Qt Gui; DOCX, DOC, ODT, RTF, and TXT to PDF/DOCX/ODT through optional in-process LibreOfficeKit. No PDF input. |
 | `backends/archive` | ZIP, TAR, 7Z inspection and extraction with strict safety limits. |
 | `platform` | XDG paths, temporary storage, desktop integration, and Linux-specific services. |
 | `ui` | Main window, queue model, format controls, settings, progress, translations, theme integration. |
@@ -262,7 +262,7 @@ public:
 ```
 
 - A backend is stateless or owns only per-job state. It MUST be safe to run separate instances concurrently.
-- A backend MUST NOT use Qt, open network sockets, spawn processes, load plugins, read environment-controlled file paths, or write outside the provided workspace/output paths.
+- A backend MUST NOT use Qt (except the isolated Qt Gui rendering in `backends/document` under ADR 0001), open network sockets, spawn processes, load plugins, read environment-controlled file paths, or write outside the provided workspace/output paths.
 - Use RAII wrappers for codec resources. No manual `free`/`close` in business logic. No third-party types in public headers.
 - Check cancellation regularly, report honest progress, and keep the worst-case cancel latency under 250 ms.
 - Enforce limits before allocating: image pixels, video duration, audio channels, archive entries, decompressed size, and metadata size.
@@ -552,6 +552,7 @@ This table is the runtime allowlist. Anything else requires an ADR and maintaine
 | Dependency | License | Linking / notes |
 | --- | --- | --- |
 | Qt 6 Core, Gui, Widgets, Svg | LGPL-3.0 | Dynamic linking only; ship notices and allow replacement. No static Qt. |
+| LibreOfficeKit (host LibreOffice Writer) | MPL-2.0 | Optional, dynamically loaded, in-process office engine. Do not bundle LibreOffice or start an external process. Ship notices and document the host-runtime requirement. |
 | FFmpeg libavcodec, libavformat, libavutil, libswscale, libswresample | LGPL-2.1-or-later | Dynamic linking; build without GPL, nonfree, or network components. |
 | libpng | libpng-2.0 | Permissive. |
 | libjpeg-turbo | BSD-3-Clause / IJG | Permissive; verify the exact upstream notices. |
@@ -682,7 +683,7 @@ CMake target names: `morpho_core`, `morpho_backends`, `morpho_ui`, `morpho` (GUI
 
 ### 9.1 Prerequisites
 
-Reference environment: **Ubuntu 24.04 LTS x86_64**, GCC 13+ or Clang 18+, CMake 3.28+, Ninja, pkg-config, Qt 6.4+ development packages, FFmpeg 6.1+ development libraries, the approved codec development packages, Catch2 v3, clang-format 18, clang-tidy 18, and ccache. Wayland and X11 sessions are both supported for manual testing.
+Reference environment: **Ubuntu 24.04 LTS x86_64**, GCC 13+ or Clang 18+, CMake 3.28+, Ninja, pkg-config, Qt 6.4+ development packages, FFmpeg 6.1+ development libraries, the approved codec development packages, Catch2 v3, clang-format 18, clang-tidy 18, and ccache. Office document support also needs `libreofficekit-dev` at build time and a LibreOffice Writer runtime. Wayland and X11 sessions are both supported for manual testing.
 
 Development packages are installed by `scripts/bootstrap-ubuntu.sh` once M0 lands. Do not install packages system-wide from an AI agent without explicit user approval. Prefer the dev container or CI image when available.
 
@@ -1057,7 +1058,7 @@ The UI should make the local-only guarantee visible without turning privacy into
 
 The order may change through an approved issue and ADR. Each milestone ends with tests, docs, and a working build.
 
-### M0: Foundation (current)
+### M0: Foundation (complete)
 
 - Repository scaffolding: `LICENSE`, `README.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, `.editorconfig`, `.gitignore`.
 - CMake project, presets, target skeleton, and CI.
@@ -1093,11 +1094,10 @@ The order may change through an approved issue and ADR. Each milestone ends with
 
 ### M4: Documents and archives
 
-- Images and plain text to PDF through libharu.
+- Markdown to PDF through Qt Gui; DOCX, DOC, ODT, RTF, and TXT to PDF/DOCX/ODT through optional LibreOfficeKit (ADR 0001).
 - PDF input only after an ADR selects a permissively licensed renderer (for example, PDFium) and documents sandboxing and limits.
 - ZIP, TAR, and 7Z inspection/extraction with strict path and size limits; ZIP/TAR creation if the UX justifies it.
-- Office document conversion remains out of scope for 1.0.
-- **Exit:** archive safety tests cover traversal, symlinks, quotas, and corrupt central directories.
+- **Exit:** document and office engine security is reviewed, archive safety tests cover traversal, symlinks, quotas, and corrupt central directories, and packaging documents the host LibreOffice requirement.
 
 ### M5: 1.0
 

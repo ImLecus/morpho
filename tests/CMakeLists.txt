@@ -22,6 +22,26 @@ add_test(
 )
 set_tests_properties(media.roundtrip PROPERTIES TIMEOUT 120)
 
+add_executable(morpho_document_conversion_test document_conversion_test.cpp)
+target_link_libraries(
+  morpho_document_conversion_test
+  PRIVATE morpho_backends Qt6::Gui morpho_project_warnings
+)
+
+add_test(
+  NAME document.converts
+  COMMAND $<TARGET_FILE:morpho_document_conversion_test>
+          "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/tiny.md"
+          "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/tiny.docx"
+          "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/tiny.odt"
+)
+set_tests_properties(
+  document.converts
+  PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+    TIMEOUT 120
+)
+
 add_executable(
   morpho_ui_drop_test
   ui_drop_test.cpp
@@ -34,13 +54,16 @@ target_link_libraries(
 
 add_test(
   NAME ui.drop_files
-  COMMAND $<TARGET_FILE:morpho_ui_drop_test> "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/tiny.jpg" "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/tiny.mp4"
+  COMMAND $<TARGET_FILE:morpho_ui_drop_test>
+          "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/tiny.jpg"
+          "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/tiny.mp4"
+          "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/tiny.md"
 )
 set_tests_properties(
   ui.drop_files
   PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
-    TIMEOUT 30
+    TIMEOUT 60
 )
 
 add_test(NAME morpho.version COMMAND $<TARGET_FILE:morpho> --version)

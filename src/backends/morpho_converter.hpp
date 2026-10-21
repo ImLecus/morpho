@@ -5,6 +5,7 @@
 
 #include <morpho/core/conversion.hpp>
 
+#include "backends/document/document_converter.hpp"
 #include "backends/image/image_converter.hpp"
 #include "backends/media/media_converter.hpp"
 
@@ -14,10 +15,12 @@ class MorphoConverter final : public ConversionService {
 public:
     bool supportsInput(const std::filesystem::path &path) const override;
     ConversionResult convert(const ConversionRequest &request) override;
+    bool usedLibreOffice() const;
 
 private:
     image::ImageConverter m_image;
     media::MediaConverter m_media;
+    document::DocumentConverter m_document;
 };
 
 } // namespace morpho

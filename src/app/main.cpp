@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Morpho contributors
 
+#include <cstdio>
+#include <cstdlib>
 #include <iostream>
 #include <string_view>
 
@@ -58,20 +60,35 @@ int main(int argc, char *argv[]) {
     QApplication::setWindowIcon(resourceIcon);
 
     morpho::MorphoConverter converter;
-    morpho::ui::MainWindow window(converter);
-    window.show();
-    if (auto *handle = window.windowHandle()) {
-        handle->setIcon(resourceIcon);
-    }
-
-    if (smokeTest) {
-        if (QGuiApplication::windowIcon().isNull()) {
-            std::cerr << "Morpho application icon failed to load\n";
-            return 1;
+    int exitCode = 0;
+    {
+        morpho::ui::MainWindow window(converter);
+        window.show();
+        if (auto *handle = window.windowHandle()) {
+            handle->setIcon(resourceIcon);
         }
 
-        QTimer::singleShot(0, &application, &QCoreApplication::quit);
+        if (smokeTest) {
+            if (QGuiApplication::windowIcon().isNull()) {
+                std::cerr << "Morpho application icon failed to load\n";
+                return 1;
+            }
+
+            QTimer::singleShot(0, &application, &QCoreApplication::quit);
+        }
+
+        exitCode = application.exec();
     }
 
-    return application.exec();
+    // Check after the window is destroyed: its destructor joins the worker.
+    const bool hardExit = converter.usedLibreOffice();
+    if (hardExit) {
+        // LibreOfficeKit 24.2 can crash in its shutdown path after the office
+        // instance has been used. Qt objects above are already destroyed; let
+        // the OS reclaim the remaining process state instead of running it.
+        std::fflush(nullptr);
+        std::_Exit(exitCode);
+    }
+
+    return exitCode;
 }

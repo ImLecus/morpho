@@ -29,8 +29,8 @@
 #include <iostream>
 
 int main(int argc, char *argv[]) {
-    if (argc < 2 || argc > 3) {
-        std::cerr << "Usage: morpho_ui_drop_test <input.jpg> [input.mp4]\n";
+    if (argc < 2 || argc > 4) {
+        std::cerr << "Usage: morpho_ui_drop_test <input.jpg> [input.mp4] [input.md]\n";
         return 2;
     }
 
@@ -65,10 +65,13 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    if (toCombo->count() != 19 || toCombo->currentData().toString() != QStringLiteral("png") ||
+    if (toCombo->count() != 23 || toCombo->currentData().toString() != QStringLiteral("png") ||
         toCombo->itemData(8).toString() != QStringLiteral("mp3") ||
         toCombo->itemData(15).toString() != QStringLiteral("mp4") ||
-        toCombo->itemData(18).toString() != QStringLiteral("mov")) {
+        toCombo->itemData(18).toString() != QStringLiteral("mov") ||
+        toCombo->itemData(20).toString() != QStringLiteral("pdf") ||
+        toCombo->itemData(21).toString() != QStringLiteral("docx") ||
+        toCombo->itemData(22).toString() != QStringLiteral("odt")) {
         std::cerr << "The output format list is incomplete or has an unexpected default.\n";
         return 1;
     }
@@ -174,7 +177,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    if (argc == 3) {
+    if (argc >= 3) {
         const QString mediaFixture = QString::fromLocal8Bit(argv[2]);
         const QString mediaInput = temporaryDirectory.filePath(QStringLiteral("tiny.mp4"));
         if (!QFile::copy(mediaFixture, mediaInput)) {
@@ -243,6 +246,80 @@ int main(int argc, char *argv[]) {
         }
         if (!foundMediaRow) {
             std::cerr << "The media sidebar row has an unexpected name.\n";
+            return 1;
+        }
+    }
+
+    if (argc == 4) {
+        const QString documentFixture = QString::fromLocal8Bit(argv[3]);
+        const QString documentInput = temporaryDirectory.filePath(QStringLiteral("tiny.md"));
+        if (!QFile::copy(documentFixture, documentInput)) {
+            std::cerr << "Could not copy the Markdown fixture.\n";
+            return 1;
+        }
+
+        int documentIndex = -1;
+        for (int i = 0; i < toCombo->count(); ++i) {
+            if (toCombo->itemData(i).toString() == QStringLiteral("pdf")) {
+                documentIndex = i;
+                break;
+            }
+        }
+        if (documentIndex < 0) {
+            std::cerr << "Could not find the PDF output option.\n";
+            return 1;
+        }
+        toCombo->setCurrentIndex(documentIndex);
+
+        QMimeData documentMimeData;
+        documentMimeData.setUrls({QUrl::fromLocalFile(documentInput)});
+        QDragEnterEvent documentEnterEvent(QPoint(10, 10), Qt::CopyAction, &documentMimeData,
+                                           Qt::LeftButton, Qt::NoModifier);
+        QCoreApplication::sendEvent(dropTarget, &documentEnterEvent);
+        if (!documentEnterEvent.isAccepted()) {
+            std::cerr << "The document drag-enter event was not accepted.\n";
+            return 1;
+        }
+
+        QDropEvent documentDropEvent(QPointF(10.0, 10.0), Qt::CopyAction, &documentMimeData,
+                                     Qt::LeftButton, Qt::NoModifier);
+        QCoreApplication::sendEvent(dropTarget, &documentDropEvent);
+        if (!documentDropEvent.isAccepted()) {
+            std::cerr << "The document drop event was not accepted.\n";
+            return 1;
+        }
+
+        QElapsedTimer documentTimer;
+        documentTimer.start();
+        while (window.findChildren<QWidget *>(QStringLiteral("convertedRow")).size() < 3 &&
+               documentTimer.elapsed() < 5000) {
+            QCoreApplication::processEvents(QEventLoop::AllEvents, 50);
+            QThread::msleep(10);
+        }
+
+        const QList<QWidget *> documentRows =
+            window.findChildren<QWidget *>(QStringLiteral("convertedRow"));
+        if (documentRows.size() != 3) {
+            std::cerr << "The document conversion did not appear in the sidebar.\n";
+            return 1;
+        }
+
+        if (QFileInfo::exists(temporaryDirectory.filePath(QStringLiteral("tiny.pdf")))) {
+            std::cerr << "The document conversion wrote output to disk.\n";
+            return 1;
+        }
+
+        bool foundDocumentRow = false;
+        for (QWidget *documentRow : documentRows) {
+            auto *documentName = documentRow->findChild<QLabel *>(QStringLiteral("convertedName"));
+            if (documentName != nullptr &&
+                documentName->text() == QStringLiteral("tiny (MD → PDF)")) {
+                foundDocumentRow = true;
+                break;
+            }
+        }
+        if (!foundDocumentRow) {
+            std::cerr << "The document sidebar row has an unexpected name.\n";
             return 1;
         }
     }

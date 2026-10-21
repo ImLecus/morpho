@@ -1,5 +1,6 @@
 add_subdirectory(image)
 add_subdirectory(media)
+add_subdirectory(document)
 
 add_library(
   morpho_converter
@@ -10,7 +11,7 @@ add_library(
 target_include_directories(morpho_converter PUBLIC "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(
   morpho_converter
-  PUBLIC morpho_image_backend morpho_media_backend
+  PUBLIC morpho_image_backend morpho_media_backend morpho_document_backend
   PRIVATE morpho_project_warnings
 )
 

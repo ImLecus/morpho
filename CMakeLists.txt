@@ -60,6 +60,18 @@ pkg_check_modules(AVUTIL REQUIRED IMPORTED_TARGET libavutil)
 pkg_check_modules(SWSCALE REQUIRED IMPORTED_TARGET libswscale)
 pkg_check_modules(SWRESAMPLE REQUIRED IMPORTED_TARGET libswresample)
 find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Widgets)
+
+find_path(
+  LIBREOFFICEKIT_INCLUDE_DIR
+  NAMES LibreOfficeKit/LibreOfficeKit.h
+)
+set(
+  MORPHO_LIBREOFFICE_PROGRAM_PATH
+  "/usr/lib/libreoffice/program"
+  CACHE PATH
+  "LibreOffice program directory used by LibreOfficeKit"
+)
+
 qt_standard_project_setup()
 set(CMAKE_AUTORCC ON)
 
