@@ -1,8 +1,10 @@
 cmake_minimum_required(VERSION 3.28)
 
+set(MORPHO_VERSION "0.1.0" CACHE STRING "Morpho release version")
+
 project(
   Morpho
-  VERSION 0.1.0
+  VERSION ${MORPHO_VERSION}
   DESCRIPTION "Offline, local-first file converter"
   LANGUAGES C CXX
 )
@@ -80,3 +82,27 @@ add_subdirectory(src)
 if(BUILD_TESTING)
   add_subdirectory(tests)
 endif()
+
+install(
+  FILES
+    "${PROJECT_SOURCE_DIR}/LICENSE"
+    "${PROJECT_SOURCE_DIR}/README.md"
+    "${PROJECT_SOURCE_DIR}/THIRD_PARTY_NOTICES.md"
+  DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/doc/morpho"
+)
+
+set(CPACK_PACKAGE_NAME "morpho")
+set(CPACK_PACKAGE_VENDOR "Morpho contributors")
+set(CPACK_PACKAGE_CONTACT "Morpho contributors <morpho@users.noreply.github.com>")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Offline, local-first file converter")
+set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
+set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/ImLecus/morpho")
+set(CPACK_RESOURCE_FILE_LICENSE "${PROJECT_SOURCE_DIR}/LICENSE")
+set(CPACK_STRIP_FILES ON)
+set(CPACK_DEBIAN_PACKAGE_NAME "morpho")
+set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Morpho contributors <morpho@users.noreply.github.com>")
+set(CPACK_DEBIAN_PACKAGE_SECTION "utils")
+set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "${CPACK_PACKAGE_HOMEPAGE_URL}")
+set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+set(CPACK_DEBIAN_COMPRESSION_TYPE "xz")
+include(CPack)

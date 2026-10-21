@@ -1,6 +1,11 @@
 # Build output
 /build/
 
+# Local release artifacts
+/AppDir/
+/dist/
+/tools/
+
 # CMake user files
 CMakeUserPresets.json
 

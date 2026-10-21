@@ -1,0 +1,175 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-linux:
+    name: Linux packages
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Verify tag is on main
+        run: |
+          set -euo pipefail
+          tag_commit="$(git rev-parse "${GITHUB_REF}^{commit}")"
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$tag_commit" origin/main; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not point to a commit on main."
+            exit 1
+          fi
+
+      - name: Validate version tag
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          version="${tag#v}"
+          if [ "$version" = "$tag" ] ||
+             ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Expected a stable SemVer tag such as v0.1.0, got ${tag}."
+            exit 1
+          fi
+          echo "MORPHO_TAG=$tag" >> "$GITHUB_ENV"
+          echo "MORPHO_VERSION=$version" >> "$GITHUB_ENV"
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes \
+            build-essential cmake ninja-build dpkg-dev \
+            libavcodec-dev libavformat-dev libavif-dev libavutil-dev \
+            libgif-dev libjpeg-turbo8-dev libpng-dev libswresample-dev \
+            libswscale-dev libtiff-dev libwebp-dev \
+            libreofficekit-dev libreoffice-writer \
+            qt6-base-dev qt6-base-dev-tools
+
+      - name: Configure
+        run: cmake --preset ci -DMORPHO_VERSION="$MORPHO_VERSION"
+
+      - name: Build
+        run: cmake --build --preset ci
+
+      - name: Test
+        run: ctest --preset ci --output-on-failure
+
+      - name: Install staging tree
+        run: |
+          set -euo pipefail
+          rm -rf AppDir
+          cmake --install build/ci --prefix "$PWD/AppDir/usr"
+
+      - name: Build Debian package
+        run: |
+          set -euo pipefail
+          rm -rf dist
+          mkdir -p dist
+          cpack --config build/ci/CPackConfig.cmake -G DEB -B dist
+          deb="$(find dist -maxdepth 1 -name '*.deb' -print -quit)"
+          test -n "$deb"
+          mv "$deb" "dist/Morpho-${MORPHO_TAG}-linux-amd64.deb"
+          rm -rf dist/_CPack_Packages
+
+      - name: Build AppImage
+        run: |
+          set -euo pipefail
+          mkdir -p tools
+          curl --fail --location --retry 3 \
+            --output tools/linuxdeploy-x86_64.AppImage \
+            https://github.com/linuxdeploy/linuxdeploy/releases/download/1-alpha-20251107-1/linuxdeploy-x86_64.AppImage
+          curl --fail --location --retry 3 \
+            --output tools/linuxdeploy-plugin-qt-x86_64.AppImage \
+            https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/1-alpha-20250213-1/linuxdeploy-plugin-qt-x86_64.AppImage
+          echo "c20cd71e3a4e3b80c3483cef793cda3f4e990aca14014d23c544ca3ce1270b4d  tools/linuxdeploy-x86_64.AppImage" | sha256sum --check -
+          echo "15106be885c1c48a021198e7e1e9a48ce9d02a86dd0a1848f00bdbf3c1c92724  tools/linuxdeploy-plugin-qt-x86_64.AppImage" | sha256sum --check -
+          chmod +x tools/linuxdeploy-x86_64.AppImage tools/linuxdeploy-plugin-qt-x86_64.AppImage
+          ln -sf linuxdeploy-x86_64.AppImage tools/linuxdeploy
+          ln -sf linuxdeploy-plugin-qt-x86_64.AppImage tools/linuxdeploy-plugin-qt
+          export PATH="$PWD/tools:$PATH"
+          export QMAKE="/usr/bin/qmake6"
+          export APPIMAGE_EXTRACT_AND_RUN=1
+          linuxdeploy --appdir AppDir \
+            --executable AppDir/usr/bin/morpho \
+            --desktop-file packaging/linux/morpho.desktop \
+            --icon-file morpho.png \
+            --plugin qt \
+            --output appimage
+          appimage="$(find . -maxdepth 2 -name '*.AppImage' ! -path './tools/*' ! -path './AppDir/*' -print -quit)"
+          test -n "$appimage"
+          mv "$appimage" "dist/Morpho-${MORPHO_TAG}-linux-x86_64.AppImage"
+
+      - name: Smoke-test AppImage
+        run: |
+          set -euo pipefail
+          QT_QPA_PLATFORM=offscreen \
+            QT_QPA_PLATFORM_PLUGIN_PATH="$(qmake6 -query QT_INSTALL_PLUGINS)/platforms" \
+            APPIMAGE_EXTRACT_AND_RUN=1 \
+            "./dist/Morpho-${MORPHO_TAG}-linux-x86_64.AppImage" --smoke-test
+
+      - name: Add release documents and checksums
+        run: |
+          set -euo pipefail
+          cp LICENSE THIRD_PARTY_NOTICES.md dist/
+          (
+            cd dist
+            sha256sum Morpho-"${MORPHO_TAG}"-linux-x86_64.AppImage \
+              Morpho-"${MORPHO_TAG}"-linux-amd64.deb > SHA256SUMS
+          )
+
+      - name: Upload Linux release files
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: morpho-linux
+          path: dist
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub release
+    needs: build-linux
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download Linux release files
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: morpho-linux
+          path: dist
+
+      - name: Publish release
+        uses: softprops/action-gh-release@5113cdc90fd4d541c801c55356214017bf5ae34b # v3.0.3
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          body: |
+            Linux packages for ${{ github.ref_name }}.
+
+            - `Morpho-${{ github.ref_name }}-linux-x86_64.AppImage`
+            - `Morpho-${{ github.ref_name }}-linux-amd64.deb`
+
+            These are unsigned preview builds produced on Ubuntu 24.04 with the distribution
+            Qt and FFmpeg packages. FFmpeg licensing and signing review are pending; see
+            `THIRD_PARTY_NOTICES.md` and `SHA256SUMS`.
+          files: |
+            dist/Morpho-*.AppImage
+            dist/Morpho-*.deb
+            dist/SHA256SUMS
+            dist/LICENSE
+            dist/THIRD_PARTY_NOTICES.md
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+          draft: false
+          prerelease: false

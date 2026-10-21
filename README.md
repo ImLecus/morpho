@@ -61,6 +61,29 @@ The GUI can be smoke-tested without a display:
 QT_QPA_PLATFORM=offscreen ./build/dev/src/app/morpho --smoke-test
 ```
 
+## Releases
+
+Push a stable SemVer tag such as `v0.1.0` to a commit on `main`:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The `Release` workflow builds and tests the Linux application, creates an AppImage and a `.deb`,
+smoke-tests the AppImage, writes `SHA256SUMS`, and publishes a GitHub Release named after the
+tag.
+
+Release assets:
+
+- `Morpho-<tag>-linux-x86_64.AppImage`
+- `Morpho-<tag>-linux-amd64.deb`
+- `SHA256SUMS`, `LICENSE`, and `THIRD_PARTY_NOTICES.md`
+
+The packages are unsigned previews built on Ubuntu 24.04 with the distribution Qt and FFmpeg
+packages; the distribution FFmpeg may include GPL components. Windows and macOS releases are not
+produced yet. See [ADR 0002](docs/adr/0002-linux-release-artifacts.md).
+
 ### Troubleshooting
 
 If CMake reports that `Qt6Config.cmake` was not found, install the Qt 6 development packages:

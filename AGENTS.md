@@ -2,7 +2,6 @@
 
 > **Audience:** maintainers, contributors, reviewers, and AI coding agents.
 > **Scope:** the entire repository.
-> **Status:** pre-alpha, implementation phase (October 2026).
 > **Read this first.** Subdirectories may add a local `AGENTS.md` with extra rules. Local rules MUST NOT contradict this file.
 
 ## 0. How to use this document
@@ -84,20 +83,20 @@ M0 is complete. The repository has a Qt window, CMake presets, CI, tests, and in
 
 ## 2. Foundational decisions
 
-| Area | Decision | Rationale / constraints |
-| --- | --- | --- |
+| Area                 | Decision                                                                                                  | Rationale / constraints                                                                                            |
+| -------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | Application language | **C++20** by default; **C17** only for stable C ABIs, C-only dependencies, or a measured low-level module | RAII, value semantics, zero-cost abstractions, and a mature ecosystem. C stays available where it genuinely helps. |
-| GUI toolkit | **Qt 6 Widgets** in C++; no QML | Native widgets, accessibility, mature file dialogs, and lower memory than QML, Electron, or Qt WebEngine. |
-| Build system | **CMake 3.28+**, Ninja, CMake Presets, CTest | Ubiquitous, reproducible, IDE-friendly, and easy to script in CI. |
-| Platforms | **Linux x86_64 first**, X11 and Wayland; portable core; Windows/macOS later | Focus delivery. Platform code stays behind interfaces so ports do not rewrite the core. |
-| Runtime backends | **In-process bundled libraries**; no external converter executables | Offline guarantee, reproducible behavior, fewer security and packaging surprises. |
-| Packaging | **AppImage primary**, Flatpak next, `.deb` optional | Self-contained delivery plus a sandboxed option. |
-| License | **MIT** for original code; LGPL dependencies dynamically linked | Permissive project license with strict third-party compliance. |
-| Versioning | **SemVer 2.0.0**; `0.y.z` before 1.0 | Predictable releases and changelog automation. |
-| Git workflow | **GitHub Flow**: short-lived branches from `main`, pull requests, squash merge; Conventional Commits | Clean history, small reviews, and a `main` branch that is always releasable. |
-| Testing | **Catch2 v3 + CTest**; Qt Test for UI; libFuzzer for parsers | Fast, local, deterministic, and network-free. |
-| Documentation | **US English**; ADRs for significant decisions | Global collaboration and durable context. |
-| Toolchain baseline | GCC 13+ or Clang 18+, CMake 3.28+, Qt 6.4+, FFmpeg 6.1+ | Ubuntu 24.04 LTS is the reference development environment. |
+| GUI toolkit          | **Qt 6 Widgets** in C++; no QML                                                                           | Native widgets, accessibility, mature file dialogs, and lower memory than QML, Electron, or Qt WebEngine.          |
+| Build system         | **CMake 3.28+**, Ninja, CMake Presets, CTest                                                              | Ubiquitous, reproducible, IDE-friendly, and easy to script in CI.                                                  |
+| Platforms            | **Linux x86_64 first**, X11 and Wayland; portable core; Windows/macOS later                               | Focus delivery. Platform code stays behind interfaces so ports do not rewrite the core.                            |
+| Runtime backends     | **In-process bundled libraries**; no external converter executables                                       | Offline guarantee, reproducible behavior, fewer security and packaging surprises.                                  |
+| Packaging            | **AppImage and `.deb`** for Linux previews; Flatpak later                                                 | Self-contained delivery plus a distribution-native package.                                                        |
+| License              | **MIT** for original code; LGPL dependencies dynamically linked                                           | Permissive project license with strict third-party compliance.                                                     |
+| Versioning           | **SemVer 2.0.0**; `0.y.z` before 1.0                                                                      | Predictable releases and changelog automation.                                                                     |
+| Git workflow         | **GitHub Flow**: short-lived branches from `main`, pull requests, squash merge; Conventional Commits      | Clean history, small reviews, and a `main` branch that is always releasable.                                       |
+| Testing              | **Catch2 v3 + CTest**; Qt Test for UI; libFuzzer for parsers                                              | Fast, local, deterministic, and network-free.                                                                      |
+| Documentation        | **US English**; ADRs for significant decisions                                                            | Global collaboration and durable context.                                                                          |
+| Toolchain baseline   | GCC 13+ or Clang 18+, CMake 3.28+, Qt 6.4+, FFmpeg 6.1+                                                   | Ubuntu 24.04 LTS is the reference development environment.                                                         |
 
 Qt Widgets plus C++20 is the pragmatic choice for a low-memory, native, cross-platform desktop application. It avoids the render process, GPU overhead, and attack surface of web-based stacks. C remains a first-class option for stable ABI boundaries and low-level adapters, but C++ is the default because ownership errors in large C codebases are expensive.
 
@@ -147,21 +146,21 @@ Public headers under `include/morpho/` expose only standard-library types and Mo
 
 ### 3.2 Modules
 
-| Module | Responsibility |
-| --- | --- |
-| `core/domain` | Format descriptors, conversion requests, jobs, errors, limits, capability registry, options schema. |
-| `core/engine` | Job scheduler, worker pool, cancellation, progress, conversion pipeline, output finalization, verification. |
-| `core/io` | Path handling, magic-byte detection, atomic output files, temporary workspaces, disk-space checks. |
-| `backends/image` | PNG, JPEG, WebP, AVIF, TIFF, BMP, GIF, and future image formats. |
-| `backends/media` | Audio and video decode/encode through FFmpeg: MP3, M4A/AAC, Opus, Vorbis, FLAC, WAV, MP4, WebM, MKV, MOV, GIF. |
-| `backends/audio` | Future split for audio-specific options; audio currently lives in `backends/media`. |
-| `backends/video` | Future split for video-specific options; video currently lives in `backends/media`. |
+| Module              | Responsibility                                                                                                                         |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `core/domain`       | Format descriptors, conversion requests, jobs, errors, limits, capability registry, options schema.                                    |
+| `core/engine`       | Job scheduler, worker pool, cancellation, progress, conversion pipeline, output finalization, verification.                            |
+| `core/io`           | Path handling, magic-byte detection, atomic output files, temporary workspaces, disk-space checks.                                     |
+| `backends/image`    | PNG, JPEG, WebP, AVIF, TIFF, BMP, GIF, and future image formats.                                                                       |
+| `backends/media`    | Audio and video decode/encode through FFmpeg: MP3, M4A/AAC, Opus, Vorbis, FLAC, WAV, MP4, WebM, MKV, MOV, GIF.                         |
+| `backends/audio`    | Future split for audio-specific options; audio currently lives in `backends/media`.                                                    |
+| `backends/video`    | Future split for video-specific options; video currently lives in `backends/media`.                                                    |
 | `backends/document` | Markdown to PDF through Qt Gui; DOCX, DOC, ODT, RTF, and TXT to PDF/DOCX/ODT through optional in-process LibreOfficeKit. No PDF input. |
-| `backends/archive` | ZIP, TAR, 7Z inspection and extraction with strict safety limits. |
-| `platform` | XDG paths, temporary storage, desktop integration, and Linux-specific services. |
-| `ui` | Main window, queue model, format controls, settings, progress, translations, theme integration. |
-| `cli` | Headless conversion, format listing, machine-readable output, stable exit codes. |
-| `app` | Process entry point, dependency wiring, logging initialization, crash handling, shutdown. |
+| `backends/archive`  | ZIP, TAR, 7Z inspection and extraction with strict safety limits.                                                                      |
+| `platform`          | XDG paths, temporary storage, desktop integration, and Linux-specific services.                                                        |
+| `ui`                | Main window, queue model, format controls, settings, progress, translations, theme integration.                                        |
+| `cli`               | Headless conversion, format listing, machine-readable output, stable exit codes.                                                       |
+| `app`               | Process entry point, dependency wiring, logging initialization, crash handling, shutdown.                                              |
 
 ### 3.3 Conversion pipeline
 
@@ -199,17 +198,17 @@ On failure or cancellation, release the in-memory result, delete any workspace, 
 
 `core` uses a lightweight `Result<T>` type built on `std::variant<T, Error>` or an equivalent C++20 design. `std::expected` is C++23 and is not available. Exceptions are not used for expected failures.
 
-| Code | Meaning | Typical user action |
-| --- | --- | --- |
-| `InvalidRequest` | Missing, contradictory, or malformed options. | Fix the selection or options. |
-| `UnsupportedFormat` | Input or output format is not supported, or the pair is impossible. | Choose a supported target. |
-| `CorruptInput` | The input is truncated, malformed, or fails validation. | Try another file or re-export the source. |
-| `PermissionDenied` | The process cannot read the input or write the output. | Choose a writable folder. |
-| `NoSpace` | The destination filesystem lacks space for the estimated output. | Free space or choose another folder. |
-| `ResourceLimit` | A limit was exceeded (pixels, duration, entries, memory). | Reduce the input or raise a documented limit. |
-| `Canceled` | The user or scheduler canceled the job. | None. |
-| `DependencyFailure` | A codec or library failed in an unexpected way. | Retry; report with logs if it persists. |
-| `Internal` | A bug or invariant violation. | Report with the error code and logs. |
+| Code                | Meaning                                                             | Typical user action                           |
+| ------------------- | ------------------------------------------------------------------- | --------------------------------------------- |
+| `InvalidRequest`    | Missing, contradictory, or malformed options.                       | Fix the selection or options.                 |
+| `UnsupportedFormat` | Input or output format is not supported, or the pair is impossible. | Choose a supported target.                    |
+| `CorruptInput`      | The input is truncated, malformed, or fails validation.             | Try another file or re-export the source.     |
+| `PermissionDenied`  | The process cannot read the input or write the output.              | Choose a writable folder.                     |
+| `NoSpace`           | The destination filesystem lacks space for the estimated output.    | Free space or choose another folder.          |
+| `ResourceLimit`     | A limit was exceeded (pixels, duration, entries, memory).           | Reduce the input or raise a documented limit. |
+| `Canceled`          | The user or scheduler canceled the job.                             | None.                                         |
+| `DependencyFailure` | A codec or library failed in an unexpected way.                     | Retry; report with logs if it persists.       |
+| `Internal`          | A bug or invariant violation.                                       | Report with the error code and logs.          |
 
 - Error messages in `core` are English technical messages for logs and developers. The UI maps stable error codes to localized, actionable copy.
 - Errors carry a stable code, a short context string, and an optional cause. Do not expose raw third-party messages as the primary user-facing text.
@@ -335,21 +334,21 @@ C is a first-class option, not a second-class citizen. Use it where a stable C A
 
 ### 4.4 Naming
 
-| Element | Convention | Example |
-| --- | --- | --- |
-| C++ namespaces | lowercase | `morpho::image` |
-| C++ types/classes | PascalCase | `ConversionQueueModel` |
-| C++ functions/methods | camelCase | `convertFile()` |
-| C++ variables/parameters | camelCase | `outputPath` |
-| C++ private members | `m_` + camelCase | `m_jobCount` |
-| C++ constants | `k` + PascalCase | `kDefaultQuality` |
-| C++ enum values (scoped) | PascalCase | `ErrorCode::CorruptInput` |
-| C functions | `morpho_` + snake_case | `morpho_job_cancel()` |
-| C types | `Morpho` + PascalCase | `MorphoJob` |
-| C enum constants/macros | `MORPHO_` + SCREAMING_SNAKE | `MORPHO_OK` |
-| Files | snake_case | `conversion_queue_model.cpp` |
-| Test files | `*_test.cpp` | `png_converter_test.cpp` |
-| Qt signals | camelCase, past tense where natural | `jobFinished` |
+| Element                  | Convention                          | Example                      |
+| ------------------------ | ----------------------------------- | ---------------------------- |
+| C++ namespaces           | lowercase                           | `morpho::image`              |
+| C++ types/classes        | PascalCase                          | `ConversionQueueModel`       |
+| C++ functions/methods    | camelCase                           | `convertFile()`              |
+| C++ variables/parameters | camelCase                           | `outputPath`                 |
+| C++ private members      | `m_` + camelCase                    | `m_jobCount`                 |
+| C++ constants            | `k` + PascalCase                    | `kDefaultQuality`            |
+| C++ enum values (scoped) | PascalCase                          | `ErrorCode::CorruptInput`    |
+| C functions              | `morpho_` + snake_case              | `morpho_job_cancel()`        |
+| C types                  | `Morpho` + PascalCase               | `MorphoJob`                  |
+| C enum constants/macros  | `MORPHO_` + SCREAMING_SNAKE         | `MORPHO_OK`                  |
+| Files                    | snake_case                          | `conversion_queue_model.cpp` |
+| Test files               | `*_test.cpp`                        | `png_converter_test.cpp`     |
+| Qt signals               | camelCase, past tense where natural | `jobFinished`                |
 
 Use `is`, `has`, `can`, and `should` for booleans. Name things for what they mean, not for their type. Avoid abbreviations except well-known ones (`id`, `url`, `dpi`, `rgb`).
 
@@ -419,18 +418,18 @@ Use `is`, `has`, `can`, and `should` for booleans. Name things for what they mea
 
 These are targets for release builds on the reference machine, not marketing guarantees. Update them with measurements and an ADR if reality demands a different tradeoff.
 
-| Metric | Target | Measurement |
-| --- | --- | --- |
-| Startup to interactive (warm cache) | <= 800 ms | `bench/startup` |
-| Idle RSS, empty queue | <= 90 MiB | `/usr/bin/time -v`, `bench/startup` |
-| RSS with 100 queued files and thumbnails | <= 180 MiB | integration benchmark |
-| Peak RSS, 24 MP JPEG to WebP | <= 350 MiB | `bench/image` |
-| Peak RSS, 1 h 1080p H.264 to VP9 | <= 600 MiB | `bench/video` |
-| UI input latency (p95) | <= 50 ms | manual/UI instrumentation |
-| Progress update rate | <= 10 Hz per job | code review and instrumentation |
-| Cancellation latency | <= 250 ms | integration test |
-| AppImage size (compressed) | <= 250 MB | CI artifact |
-| Leaks in sanitizer tests | 0 | ASan/LSan |
+| Metric                                   | Target           | Measurement                         |
+| ---------------------------------------- | ---------------- | ----------------------------------- |
+| Startup to interactive (warm cache)      | <= 800 ms        | `bench/startup`                     |
+| Idle RSS, empty queue                    | <= 90 MiB        | `/usr/bin/time -v`, `bench/startup` |
+| RSS with 100 queued files and thumbnails | <= 180 MiB       | integration benchmark               |
+| Peak RSS, 24 MP JPEG to WebP             | <= 350 MiB       | `bench/image`                       |
+| Peak RSS, 1 h 1080p H.264 to VP9         | <= 600 MiB       | `bench/video`                       |
+| UI input latency (p95)                   | <= 50 ms         | manual/UI instrumentation           |
+| Progress update rate                     | <= 10 Hz per job | code review and instrumentation     |
+| Cancellation latency                     | <= 250 ms        | integration test                    |
+| AppImage size (compressed)               | <= 250 MB        | CI artifact                         |
+| Leaks in sanitizer tests                 | 0                | ASan/LSan                           |
 
 Reference machine for benchmarks: 4 vCPU, 8 GiB RAM, SSD, Ubuntu 24.04, 1920x1080. CI runners are noisy; compare medians of at least five runs and treat a 10% regression or any budget breach as a merge blocker unless an ADR explains the tradeoff.
 
@@ -549,25 +548,25 @@ Contributions are accepted under the MIT license. Commits use the Developer Cert
 
 This table is the runtime allowlist. Anything else requires an ADR and maintainer approval.
 
-| Dependency | License | Linking / notes |
-| --- | --- | --- |
-| Qt 6 Core, Gui, Widgets, Svg | LGPL-3.0 | Dynamic linking only; ship notices and allow replacement. No static Qt. |
-| LibreOfficeKit (host LibreOffice Writer) | MPL-2.0 | Optional, dynamically loaded, in-process office engine. Do not bundle LibreOffice or start an external process. Ship notices and document the host-runtime requirement. |
-| FFmpeg libavcodec, libavformat, libavutil, libswscale, libswresample | LGPL-2.1-or-later | Dynamic linking; build without GPL, nonfree, or network components. |
-| libpng | libpng-2.0 | Permissive. |
-| libjpeg-turbo | BSD-3-Clause / IJG | Permissive; verify the exact upstream notices. |
-| libwebp | BSD-3-Clause | Permissive. |
-| libavif + libaom / SVT-AV1 | BSD-2/3-Clause | Permissive; verify per release. AVIF output uses libavif. |
-| libvpx | BSD-3-Clause | VP9 encoding. |
-| libtiff | libtiff (BSD-like) | Permissive. |
-| giflib | MIT | Static GIF read/write. |
-| libarchive | BSD-2-Clause | Permissive. |
-| libharu | Zlib | Permissive; PDF writing. |
-| Catch2 | BSL-1.0 | Test-only. |
-| openh264 | BSD-2-Clause | Optional H.264 encoder; patent considerations apply. |
-| libmp3lame | LGPL-2.0-or-later | Dynamic linking only; optional MP3 encoder. |
-| libopus, libvorbis, libFLAC | BSD-3-Clause | Permissive. |
-| Qt Test, LinguistTools | Build/test only | Not linked into the shipped application; verify terms before distributing tooling. |
+| Dependency                                                           | License            | Linking / notes                                                                                                                                                         |
+| -------------------------------------------------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Qt 6 Core, Gui, Widgets, Svg                                         | LGPL-3.0           | Dynamic linking only; ship notices and allow replacement. No static Qt.                                                                                                 |
+| LibreOfficeKit (host LibreOffice Writer)                             | MPL-2.0            | Optional, dynamically loaded, in-process office engine. Do not bundle LibreOffice or start an external process. Ship notices and document the host-runtime requirement. |
+| FFmpeg libavcodec, libavformat, libavutil, libswscale, libswresample | LGPL-2.1-or-later  | Dynamic linking; build without GPL, nonfree, or network components.                                                                                                     |
+| libpng                                                               | libpng-2.0         | Permissive.                                                                                                                                                             |
+| libjpeg-turbo                                                        | BSD-3-Clause / IJG | Permissive; verify the exact upstream notices.                                                                                                                          |
+| libwebp                                                              | BSD-3-Clause       | Permissive.                                                                                                                                                             |
+| libavif + libaom / SVT-AV1                                           | BSD-2/3-Clause     | Permissive; verify per release. AVIF output uses libavif.                                                                                                               |
+| libvpx                                                               | BSD-3-Clause       | VP9 encoding.                                                                                                                                                           |
+| libtiff                                                              | libtiff (BSD-like) | Permissive.                                                                                                                                                             |
+| giflib                                                               | MIT                | Static GIF read/write.                                                                                                                                                  |
+| libarchive                                                           | BSD-2-Clause       | Permissive.                                                                                                                                                             |
+| libharu                                                              | Zlib               | Permissive; PDF writing.                                                                                                                                                |
+| Catch2                                                               | BSL-1.0            | Test-only.                                                                                                                                                              |
+| openh264                                                             | BSD-2-Clause       | Optional H.264 encoder; patent considerations apply.                                                                                                                    |
+| libmp3lame                                                           | LGPL-2.0-or-later  | Dynamic linking only; optional MP3 encoder.                                                                                                                             |
+| libopus, libvorbis, libFLAC                                          | BSD-3-Clause       | Permissive.                                                                                                                                                             |
+| Qt Test, LinguistTools                                               | Build/test only    | Not linked into the shipped application; verify terms before distributing tooling.                                                                                      |
 
 HEIC/HEIF input is a future candidate, not part of the 1.0 matrix. It requires libheif plus an approved HEVC decoder and a separate ADR.
 
@@ -579,6 +578,11 @@ HEIC/HEIF input is a future candidate, not part of the 1.0 matrix. It requires l
 - libcurl, HTTP clients, analytics SDKs, crash-reporting SDKs, and auto-update frameworks.
 - Proprietary SDKs, binary blobs without redistribution rights, and code copied from sources whose license is incompatible with MIT.
 - Static linking of LGPL libraries.
+
+**Preview exception:** Linux preview releases may use the Ubuntu distribution FFmpeg package when
+the release is explicitly labeled as a preview and is not presented as a 1.0-compliant binary.
+This exception is recorded in ADR 0002 and must be removed when the LGPL FFmpeg build is
+available.
 
 GPL tools used only at build time and not distributed (for example, a compiler or code generator) are acceptable. Do not link or bundle them.
 
@@ -736,24 +740,24 @@ cmake --build --preset release
 
 ### 9.3 CMake presets and options
 
-| Preset | Purpose |
-| --- | --- |
-| `dev` | Debug, tests on, benchmarks off, ccache, no LTO. |
-| `release` | RelWithDebInfo, tests on, LTO, hardening, reproducible flags. |
-| `asan` | Debug with AddressSanitizer, UndefinedBehaviorSanitizer, and LeakSanitizer. |
-| `tsan` | Debug with ThreadSanitizer for scheduler tests. |
-| `fuzz` | Clang libFuzzer targets, fuzzing enabled. |
-| `ci` | Release, warnings as errors, tests on, benchmarks off. |
+| Preset    | Purpose                                                                     |
+| --------- | --------------------------------------------------------------------------- |
+| `dev`     | Debug, tests on, benchmarks off, ccache, no LTO.                            |
+| `release` | RelWithDebInfo, tests on, LTO, hardening, reproducible flags.               |
+| `asan`    | Debug with AddressSanitizer, UndefinedBehaviorSanitizer, and LeakSanitizer. |
+| `tsan`    | Debug with ThreadSanitizer for scheduler tests.                             |
+| `fuzz`    | Clang libFuzzer targets, fuzzing enabled.                                   |
+| `ci`      | Release, warnings as errors, tests on, benchmarks off.                      |
 
-| Option | Default | Meaning |
-| --- | --- | --- |
-| `MORPHO_BUILD_TESTS` | `ON` when top-level | Build unit, integration, and UI tests. |
-| `MORPHO_BUILD_BENCHMARKS` | `OFF` | Build performance benchmarks. |
-| `MORPHO_WARNINGS_AS_ERRORS` | `OFF` locally, `ON` in CI | Treat compiler warnings as errors. |
-| `MORPHO_ENABLE_ASAN` | `OFF` | Enable ASan, UBSan, and LSan. |
-| `MORPHO_ENABLE_TSAN` | `OFF` | Enable ThreadSanitizer. |
-| `MORPHO_ENABLE_LTO` | `ON` for release | Link-time optimization. |
-| `MORPHO_NATIVE_OPTIMIZATIONS` | `OFF` | Local-only `-march=native`; never ship artifacts built with it. |
+| Option                        | Default                   | Meaning                                                         |
+| ----------------------------- | ------------------------- | --------------------------------------------------------------- |
+| `MORPHO_BUILD_TESTS`          | `ON` when top-level       | Build unit, integration, and UI tests.                          |
+| `MORPHO_BUILD_BENCHMARKS`     | `OFF`                     | Build performance benchmarks.                                   |
+| `MORPHO_WARNINGS_AS_ERRORS`   | `OFF` locally, `ON` in CI | Treat compiler warnings as errors.                              |
+| `MORPHO_ENABLE_ASAN`          | `OFF`                     | Enable ASan, UBSan, and LSan.                                   |
+| `MORPHO_ENABLE_TSAN`          | `OFF`                     | Enable ThreadSanitizer.                                         |
+| `MORPHO_ENABLE_LTO`           | `ON` for release          | Link-time optimization.                                         |
+| `MORPHO_NATIVE_OPTIMIZATIONS` | `OFF`                     | Local-only `-march=native`; never ship artifacts built with it. |
 
 ### 9.4 Build rules
 
@@ -794,15 +798,15 @@ Required checks for `main`: format, build, tests, sanitizer, offline, and licens
 
 ### 10.1 Test levels
 
-| Level | Scope | Tooling |
-| --- | --- | --- |
-| Unit | Pure core logic, path handling, limits, options, wrappers | Catch2 |
-| Integration | End-to-end conversions per format pair, cancellation, collisions, permissions, Unicode paths, corrupt input | Catch2 + CTest + CLI/core |
-| UI | Queue model, dialogs, drag-and-drop, keyboard flow, accessible names | Qt Test with `QT_QPA_PLATFORM=offscreen` |
-| Fuzz | Probe, metadata, archive extraction, option parsing | libFuzzer |
-| Performance | Startup, memory, throughput, cancel latency | Benchmarks + `/usr/bin/time -v` |
-| Packaging | Clean-install smoke test, library closure, offline behavior | Containers + `ldd`/`readelf` |
-| Manual | X11/Wayland, HiDPI, light/dark, screen reader, keyboard-only | Release checklist |
+| Level       | Scope                                                                                                       | Tooling                                  |
+| ----------- | ----------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| Unit        | Pure core logic, path handling, limits, options, wrappers                                                   | Catch2                                   |
+| Integration | End-to-end conversions per format pair, cancellation, collisions, permissions, Unicode paths, corrupt input | Catch2 + CTest + CLI/core                |
+| UI          | Queue model, dialogs, drag-and-drop, keyboard flow, accessible names                                        | Qt Test with `QT_QPA_PLATFORM=offscreen` |
+| Fuzz        | Probe, metadata, archive extraction, option parsing                                                         | libFuzzer                                |
+| Performance | Startup, memory, throughput, cancel latency                                                                 | Benchmarks + `/usr/bin/time -v`          |
+| Packaging   | Clean-install smoke test, library closure, offline behavior                                                 | Containers + `ldd`/`readelf`             |
+| Manual      | X11/Wayland, HiDPI, light/dark, screen reader, keyboard-only                                                | Release checklist                        |
 
 ### 10.2 Requirements
 
@@ -928,7 +932,7 @@ BREAKING CHANGE: scripts using --to must switch to --format.
 - Semantic Versioning: `MAJOR.MINOR.PATCH`, tags `vX.Y.Z`.
 - Before 1.0, minor releases may include breaking changes; document them clearly in the changelog.
 - Generate `CHANGELOG.md` from Conventional Commits. Group features, fixes, performance, and breaking changes.
-- Release artifacts include the binary/package, SHA-256 checksums, SBOM, `THIRD_PARTY_NOTICES.md`, and license texts.
+- Release artifacts include the binary/package, SHA-256 checksums, SBOM, `THIRD_PARTY_NOTICES.md`, and license texts. Until the preview exception in ADR 0002 is removed, Linux preview releases may omit the SBOM and use the distribution FFmpeg package; they must say so in the release notes.
 - Sign tags and artifacts when maintainer keys are available. At minimum, publish checksums and a reproducible build recipe.
 - Release checklist: CI green, manual QA complete, licenses reviewed, offline test passed, version updated, tag created, artifacts smoke-tested, release notes published.
 - There is no auto-update. Users update through their package manager or by downloading a new artifact.
@@ -1109,13 +1113,13 @@ The order may change through an approved issue and ADR. Each milestone ends with
 
 ### Planned format scope for 1.0
 
-| Category | Input | Output | Primary backend |
-| --- | --- | --- | --- |
-| Images | PNG, JPEG, WebP, AVIF, TIFF, BMP, GIF | Same set | libpng, libjpeg-turbo, libwebp, libavif, libtiff, FFmpeg with approved filters |
-| Audio | MP3, AAC/M4A, Opus, Ogg Vorbis, FLAC, WAV | Same set | FFmpeg and approved codec libraries |
-| Video | MP4, WebM, MKV, MOV, GIF | MP4, WebM, MKV, MOV, GIF | FFmpeg, openh264/hardware, VP9/Opus |
-| Documents | PNG/JPEG/WebP/TIFF/BMP, plain text | PDF | libharu |
-| Archives | ZIP, TAR, 7Z | ZIP, TAR (if implemented) | libarchive |
+| Category  | Input                                     | Output                    | Primary backend                                                                |
+| --------- | ----------------------------------------- | ------------------------- | ------------------------------------------------------------------------------ |
+| Images    | PNG, JPEG, WebP, AVIF, TIFF, BMP, GIF     | Same set                  | libpng, libjpeg-turbo, libwebp, libavif, libtiff, FFmpeg with approved filters |
+| Audio     | MP3, AAC/M4A, Opus, Ogg Vorbis, FLAC, WAV | Same set                  | FFmpeg and approved codec libraries                                            |
+| Video     | MP4, WebM, MKV, MOV, GIF                  | MP4, WebM, MKV, MOV, GIF  | FFmpeg, openh264/hardware, VP9/Opus                                            |
+| Documents | PNG/JPEG/WebP/TIFF/BMP, plain text        | PDF                       | libharu                                                                        |
+| Archives  | ZIP, TAR, 7Z                              | ZIP, TAR (if implemented) | libarchive                                                                     |
 
 Format support is added only with a backend, license clearance, limits, tests, and a generated matrix entry. The table is directional; `docs/formats.md` is authoritative once generated.
 
