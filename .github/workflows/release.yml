@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to publish, for example v1.0.0"
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -17,28 +23,22 @@ jobs:
     name: Linux packages
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
     env:
       QT_QPA_PLATFORM: offscreen
     steps:
       - name: Check out repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
+          ref: ${{ inputs.tag || github.ref }}
           fetch-depth: 0
 
-      - name: Verify tag is on main
+      - name: Resolve version tag
+        id: meta
         run: |
           set -euo pipefail
-          tag_commit="$(git rev-parse "${GITHUB_REF}^{commit}")"
-          git fetch --no-tags origin main
-          if ! git merge-base --is-ancestor "$tag_commit" origin/main; then
-            echo "::error::Tag ${GITHUB_REF_NAME} does not point to a commit on main."
-            exit 1
-          fi
-
-      - name: Validate version tag
-        run: |
-          set -euo pipefail
-          tag="${GITHUB_REF_NAME}"
+          tag="${{ inputs.tag || github.ref_name }}"
           version="${tag#v}"
           if [ "$version" = "$tag" ] ||
              ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -47,6 +47,21 @@ jobs:
           fi
           echo "MORPHO_TAG=$tag" >> "$GITHUB_ENV"
           echo "MORPHO_VERSION=$version" >> "$GITHUB_ENV"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Verify tag is on main
+        run: |
+          set -euo pipefail
+          tag_commit="$(git rev-parse "${MORPHO_TAG}^{commit}")"
+          for attempt in 1 2 3 4 5 6; do
+            git fetch --no-tags origin main
+            if git merge-base --is-ancestor "$tag_commit" origin/main; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::Tag ${MORPHO_TAG} does not point to a commit on main."
+          exit 1
 
       - name: Install build dependencies
         run: |
@@ -152,13 +167,13 @@ jobs:
       - name: Publish release
         uses: softprops/action-gh-release@5113cdc90fd4d541c801c55356214017bf5ae34b # v3.0.3
         with:
-          tag_name: ${{ github.ref_name }}
-          name: ${{ github.ref_name }}
+          tag_name: ${{ needs.build-linux.outputs.tag }}
+          name: ${{ needs.build-linux.outputs.tag }}
           body: |
-            Linux packages for ${{ github.ref_name }}.
+            Linux packages for ${{ needs.build-linux.outputs.tag }}.
 
-            - `Morpho-${{ github.ref_name }}-linux-x86_64.AppImage`
-            - `Morpho-${{ github.ref_name }}-linux-amd64.deb`
+            - `Morpho-${{ needs.build-linux.outputs.tag }}-linux-x86_64.AppImage`
+            - `Morpho-${{ needs.build-linux.outputs.tag }}-linux-amd64.deb`
 
             These are unsigned preview builds produced on Ubuntu 24.04 with the distribution
             Qt and FFmpeg packages. FFmpeg licensing and signing review are pending; see
