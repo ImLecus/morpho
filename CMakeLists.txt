@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.28)
 
-set(MORPHO_VERSION "0.1.0" CACHE STRING "Morpho release version")
+set(MORPHO_VERSION "1.0.0" CACHE STRING "Morpho release version")
 
 project(
   Morpho
